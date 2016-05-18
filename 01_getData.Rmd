@@ -1,0 +1,171 @@
+---
+title: "flickr map Switzerland"
+author: "Duc-Quang Nguyen"
+date: "14 May 2016"
+output: html_document
+---
+
+## FlickR
+* [timelyportfolio R and flickr](http://timelyportfolio.github.io/rCharts_Rflickr/iso_httr.html)
+* [flickr color analysis](http://beautifuldata.net/2013/05/color-analysis-of-flickr-images/)
+* [](https://github.com/furukama/flickr/blob/master/flickr_get.R)
+* [my API page](https://www.flickr.com/services/apps/by/112725067@N03)
+* [official doc API](https://www.flickr.com/services/api/)
+
+* [analyze-instagram-r](http://thinktostart.com/analyze-instagram-r/)
+# https://www.instagram.com/developer/endpoints/locations/
+
+```{r setup, include=FALSE}
+require(httr)
+library(RCurl)
+library(magrittr)
+library(dplyr)
+library(jsonlite)
+
+startDate <- as.Date("2016-01-01")
+endDate <- as.Date("2016-05-18") #Sys.Date()
+freqTime <- "week"
+  
+getPics <- F
+getGeoPics <- F
+
+# Use procedure in http://timelyportfolio.github.io/rCharts_Rflickr/iso_httr.html works!
+# save(api_key, secret, flickr.app, flickr.endpoint, tok, file = "~/swissinfo/_helpers/secrets.Rdata")
+
+load("~/swissinfo/_helpers/secrets.Rdata")
+
+
+if(getPics) {
+  # flickr search API function
+  flickrSearch <- function(
+    bbox, 
+    content_type = 1, 
+    min_taken_date = format( Sys.Date() - 7, "%Y-%m-%d"), 
+    max_taken_date = format( Sys.Date(), "%Y-%m-%d"), 
+    api_key = api_key, 
+    tok = tok
+  ) {
+
+  search <-   GET(url=sprintf(
+      "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=%s&bbox=%s&content_type=%s&min_taken_date=%s&max_taken_date=%s&format=json&nojsoncallback=1"
+      , api_key
+      , bbox
+      , content_type
+      , min_taken_date
+      , max_taken_date
+      , tok$credentials$oauth_token
+      )
+    ) %>%
+      content( as = "text" ) %>>%
+      jsonlite::fromJSON () 
+  
+     stopifnot(search[[2]] == "ok")
+    # subset the list to get only the relevant data
+    search %$% photos %$% photo
+}
+
+  time.frames <- data.frame(
+    min_taken_date = seq(startDate, endDate, freqTime)
+  )
+  time.frames$max_taken_date = c(time.frames[-1, ] -1, Sys.Date() + 1)
+  
+  # To define bbox, use http://bboxfinder.com/#45.859412,5.844727,47.524620,10.755615
+  bbox <- paste(c(5.899658,45.836454,10.541382,47.735629), collapse = ",")
+
+  pics <- do.call(rbind, lapply(1:nrow(time.frames), function(i) {
+    cat("\n", i)
+    flickrSearch(
+      bbox = bbox, 
+      min_taken_date = time.frames[i,'min_taken_date'],
+      max_taken_date = time.frames[i,'max_taken_date'], 
+      api_key = api_key, 
+      tok = tok)
+  }))
+  pics <- pics %>% select(-isfriend, -isfamily)
+  write.csv(pics, file = paste0("data/", startDate, "_", endDate, "_by", freqTime, ".csv"), row.names = F)
+} else {
+  pics <- read.csv(file=paste0("data/", startDate, "_", endDate, "_by", freqTime, ".csv"), stringsAsFactors = F)
+}
+
+stopifnot(!any(duplicated(pics)))
+
+# get the lon lat of each pics with flickr.photos.geo.getLocation
+
+if(getGeoPics) {
+
+  # flickr API get geo 
+  getGeo <- function(id, api_key = api_key, tok = tok) {
+    call <- GET(url=sprintf(
+      "https://api.flickr.com/services/rest/?method=flickr.photos.geo.getLocation&api_key=%s&photo_id=%s&format=json&nojsoncallback=1"
+      , api_key
+      , id
+      , tok$credentials$oauth_token
+    ))  %>%
+      content( as = "text" ) %>>%
+      jsonlite::fromJSON () 
+    
+    stopifnot(call[[2]] == "ok")
+    result <- call %$% photo
+    data.frame(
+      id = as.numeric(result$id), 
+      lat = as.numeric(result$location$latitude), 
+      lon = as.numeric(result$location$longitude), 
+      locality = if(is.null(result$location$locality$`_content`)) "" else result$location$locality$`_content`, 
+      county = if(is.null(result$location$county$`_content`)) "" else result$location$county$`_content`, 
+      region = if(is.null(result$location$region$`_content`)) "" else result$location$region$`_content`, 
+      country = if(is.null(result$location$country$`_content`)) "" else result$location$country$`_content`
+    )
+  }  
+  
+  geos <- do.call(rbind, lapply(pics$id, function(id) {
+    cat("\n", id)
+    getGeo(id = id, api_key = api_key, tok = tok)
+  }))
+  
+} else {
+  
+}
+
+
+
+
+
+
+search <-   GET(url=sprintf(
+      "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=%s&bbox=%s&content_type=%s&format=json&nojsoncallback=1"
+      , api_key
+      , bbox
+      , content_type
+      , tok$credentials$oauth_token
+      )
+    ) %>%
+      content( as = "text" ) %>>%
+      jsonlite::fromJSON () 
+ 
+ stopifnot(test[[2]] == "ok")
+ 
+ # subset the list to get only the relevant data
+ chpics <- search %$% photos %$% photo
+ 
+ %>>%
+      ( .$photos$photo ) %>>%
+      ( data.frame(
+        date = format( Sys.Date() - i, "%Y-%m-%d")
+        ,.
+        ,stringsAsFactors=F
+      )) %>>%
+      return
+  }
+) %>>%
+  # combine all the days into a data frame
+  ( do.call(rbind, .) )
+
+
+
+
+flickr.photos.geo.getLocation
+
+
+
+
+```
