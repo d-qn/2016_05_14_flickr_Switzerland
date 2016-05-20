@@ -21,13 +21,14 @@ library(RCurl)
 library(magrittr)
 library(dplyr)
 library(jsonlite)
+library(parallel)
 
-startDate <- as.Date("2016-01-01")
+startDate <- as.Date("2014-01-01")
 endDate <- as.Date("2016-05-18") #Sys.Date()
 freqTime <- "week"
   
 getPics <- F
-getGeoPics <- F
+getInfoPics <- F
 
 # Use procedure in http://timelyportfolio.github.io/rCharts_Rflickr/iso_httr.html works!
 # save(api_key, secret, flickr.app, flickr.endpoint, tok, file = "~/swissinfo/_helpers/secrets.Rdata")
@@ -56,7 +57,7 @@ if(getPics) {
       , tok$credentials$oauth_token
       )
     ) %>%
-      content( as = "text" ) %>>%
+      content( as = "text", encoding="UTF-8") %>%
       jsonlite::fromJSON () 
   
      stopifnot(search[[2]] == "ok")
@@ -89,22 +90,20 @@ if(getPics) {
 
 stopifnot(!any(duplicated(pics)))
 
-# get the lon lat of each pics with flickr.photos.geo.getLocation
 
-if(getGeoPics) {
-
-  # flickr API get geo 
-  getGeo <- function(id, api_key = api_key, tok = tok) {
+if(getInfoPics) {
+  # flickr API get info 
+getInfo <- function(id, api_key = api_key, tok = tok) {
     call <- GET(url=sprintf(
-      "https://api.flickr.com/services/rest/?method=flickr.photos.geo.getLocation&api_key=%s&photo_id=%s&format=json&nojsoncallback=1"
+      "https://api.flickr.com/services/rest/?method=flickr.photos.getInfo&api_key=%s&photo_id=%s&format=json&nojsoncallback=1"
       , api_key
       , id
       , tok$credentials$oauth_token
     ))  %>%
-      content( as = "text" ) %>>%
+      content( as = "text", encoding="UTF-8") %>%
       jsonlite::fromJSON () 
     
-    stopifnot(call[[2]] == "ok")
+    if(call[[2]] == "ok") {
     result <- call %$% photo
     data.frame(
       id = as.numeric(result$id), 
@@ -113,17 +112,35 @@ if(getGeoPics) {
       locality = if(is.null(result$location$locality$`_content`)) "" else result$location$locality$`_content`, 
       county = if(is.null(result$location$county$`_content`)) "" else result$location$county$`_content`, 
       region = if(is.null(result$location$region$`_content`)) "" else result$location$region$`_content`, 
-      country = if(is.null(result$location$country$`_content`)) "" else result$location$country$`_content`
-    )
-  }  
+      country = if(is.null(result$location$country$`_content`)) "" else result$location$country$`_content`,
+      isFavorite = as.numeric(result$isfavorite),
+      dateTaken = as.character(result$dates$taken),
+      views = as.numeric(result$views),
+      url = as.character(result$url$url$`_content`)
+    )     
+    } else {
+      warning("\nAPI call for ", id, " failed!")
+      NULL
+    }
+}  
+    
+  # http://gforge.se/2015/02/how-to-go-parallel-in-r-basics-tips/
+  # Calculate the number of cores
+  # Initiate cluster
+  cl <- makeCluster(detectCores(), outfile ="")
+  clusterExport(cl=cl, varlist=c("pics", "getInfo", "api_key", "tok", "%>%", "GET", "content", "%$%"))
   
-  geos <- do.call(rbind, lapply(pics$id, function(id) {
-    cat("\n", id)
-    getGeo(id = id, api_key = api_key, tok = tok)
+  infos <- do.call(rbind, parLapply(cl, 1:nrow(pics), function(i) {
+     cat("\n", i, "/", nrow(pics), "\t", pics[i, 'id'])
+     getInfo(pics[i, 'id'], api_key = api_key, tok= tok) 
   }))
+  stopCluster(cl)
   
+  pici <- right_join(pics, infos)
+  
+  write.csv(pici, file = paste0("data/", startDate, "_", endDate, "_by", freqTime, "_info.csv"), row.names = F)
 } else {
-  
+  pici <- read.csv(file = paste0("data/", startDate, "_", endDate, "_by", freqTime, "_info.csv"), stringsAsFactors = F)
 }
 
 
@@ -131,34 +148,40 @@ if(getGeoPics) {
 
 
 
-search <-   GET(url=sprintf(
-      "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=%s&bbox=%s&content_type=%s&format=json&nojsoncallback=1"
-      , api_key
-      , bbox
-      , content_type
-      , tok$credentials$oauth_token
-      )
-    ) %>%
-      content( as = "text" ) %>>%
-      jsonlite::fromJSON () 
- 
- stopifnot(test[[2]] == "ok")
- 
- # subset the list to get only the relevant data
- chpics <- search %$% photos %$% photo
- 
- %>>%
-      ( .$photos$photo ) %>>%
-      ( data.frame(
-        date = format( Sys.Date() - i, "%Y-%m-%d")
-        ,.
-        ,stringsAsFactors=F
-      )) %>>%
-      return
-  }
-) %>>%
-  # combine all the days into a data frame
-  ( do.call(rbind, .) )
+
+
+
+#discard pics not taken in Switzerland
+pig <- picg %>% filter(country == "Switzerland")
+library(leaflet)
+library(swiMap)
+require(rgdal)
+require(rgeos)
+
+path.ch <- getPathShp('CH')
+co <- readOGR(path.ch, layer = 'country')
+lakes <- readOGR(path.ch, layer = 'lakes')
+co <- spTransform(co, CRS("+init=epsg:4326"))
+lakes <- spTransform(lakes, CRS("+init=epsg:4326"))
+
+basem <- leaflet(co) %>%  addPolygons(
+    stroke = TRUE, fillOpacity = 0, smoothFactor = 0.5, weight = 1
+  )
+
+leaflet() %>% 
+  addCircleMarkers(data = pig,
+    lng = ~lon, lat = ~lat, radius = 1, 
+    stroke = FALSE, fillOpacity = 0.8, color = "#336666") %>%
+  addPolygons(data = co, stroke = TRUE, fillOpacity = 0, 
+    smoothFactor = 0.5, weight = 1)  %>%
+  addPolygons(data = lakes, stroke = FALSE, fillOpacity = 1, 
+    smoothFactor = 0.5, weight = 1)   
+
+  
+
+
+flickr.photos.getInfo
+
 
 
 
