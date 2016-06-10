@@ -1,0 +1,54 @@
+---
+title: "Population data from OFS"
+author: "Duc-Quang Nguyen"
+date: "08 06 2016"
+output: html_document
+---
+
+## Description
+
+The procedure to get the latest commune population data from OFS and match if with my available geo data.
+Commune portraits have older population data, swiMap::loadCommunesCHdata that is why this was done
+
+* Population data extracted from [stat-tab](https://www.pxweb.bfs.admin.ch/Selection.aspx?px_language=fr&px_db=px-x-0102010000_101&px_tableid=px-x-0102010000_101\px-x-0102010000_101.px&px_type=PX) 
+* selected:
+   * year 2014
+   * Canton (-) / District (>>) / Commune  -> EVERYTHING
+   * Type de population -> EVERYTHING
+* saved in data/px-x-0102010000_101.csv
+
+```{r map data, message = F}
+library(dplyr)
+data.read <- read.table("data/px-x-0102010000_101.csv", 
+  skip = 1, sep = "\t", header = T, encoding = "latin1")
+
+data <- data.read %>% select(-Année) %>% 
+  rename(loc = `Canton.......District........Commune.........`) %>%
+  group_by(loc) %>% summarise(pop = sum(`Population.résidante.permanente.et.non.permanente`)) %>%
+  ungroup()
+
+# get only municipalities! (starting with ......)
+data <- data[grepl("......", data$loc, fixed = T),]
+data$loc <- gsub("......", "", as.character(data$loc), fixed = T)
+data$id <- substr(data$loc, 1, 4)
+data$idn <- as.numeric(data$id)
+data$loc <- gsub("^\\d{4} ", "", data$loc)
+
+```
+
+```{r map data, message = F}
+library(swiMap)
+require(rgdal)
+require(rgeos)
+require(maptools)
+
+path.ch <- getPathShp('CH', year = 2014)
+mu <- readOGR(path.ch, layer = 'municipalities')
+
+mu <- spTransform(mu, CRS("+init=epsg:4326"))
+mu.df <- formatShp(mu)
+gname <- unique(mu.df$GEMNAME)
+
+sum(!gname %in% data$loc)
+sum(!unique(mu.df$BFSNR) %in% data$idn)
+```

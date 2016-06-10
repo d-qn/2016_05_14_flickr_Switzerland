@@ -29,6 +29,7 @@ freqTime <- "week"
   
 getPics <- F
 getInfoPics <- F
+getFavs <- F ## TODO
 
 # Use procedure in http://timelyportfolio.github.io/rCharts_Rflickr/iso_httr.html works!
 # save(api_key, secret, flickr.app, flickr.endpoint, tok, file = "~/swissinfo/_helpers/secrets.Rdata")
@@ -70,8 +71,8 @@ if(getPics) {
   )
   time.frames$max_taken_date = c(time.frames[-1, ] -1, Sys.Date() + 1)
   
-  # To define bbox, use http://bboxfinder.com/#45.859412,5.844727,47.524620,10.755615
-  bbox <- paste(c(5.899658,45.836454,10.541382,47.735629), collapse = ",")
+  # To define bbox, use http://bboxfinder.com/#45.809658,5.745850,47.813155,10.563354
+  bbox <- paste(c(5.745850,45.809658,10.563354,47.813155), collapse = ",")
 
   pics <- do.call(rbind, lapply(1:nrow(time.frames), function(i) {
     cat("\n", i)
@@ -143,48 +144,72 @@ getInfo <- function(id, api_key = api_key, tok = tok) {
   pici <- read.csv(file = paste0("data/", startDate, "_", endDate, "_by", freqTime, "_info.csv"), stringsAsFactors = F)
 }
 
-
-
-
-
-
+if(getFavs) {
+  # get favorites count, a different API call!!!
+  # https://www.flickr.com/services/api/flickr.photos.getFavorites.html
+  flickr.photos.getFavorites  
+  
+}
 
 
 
 #discard pics not taken in Switzerland
-pig <- picg %>% filter(country == "Switzerland")
+pig <- pici %>% filter(country == "Switzerland")
 library(leaflet)
+library(htmltools)
 library(swiMap)
+library(swiRcharts)
 require(rgdal)
 require(rgeos)
+require(maptools)
 
-path.ch <- getPathShp('CH')
+path.ch <- getPathShp('CH', year = 2014)
 co <- readOGR(path.ch, layer = 'country')
 lakes <- readOGR(path.ch, layer = 'lakes')
+mu <- readOGR(path.ch, layer = 'municipalities')
+
 co <- spTransform(co, CRS("+init=epsg:4326"))
 lakes <- spTransform(lakes, CRS("+init=epsg:4326"))
+mu <- spTransform(mu, CRS("+init=epsg:4326"))
+mu.df <- formatShp(mu)
 
-basem <- leaflet(co) %>%  addPolygons(
-    stroke = TRUE, fillOpacity = 0, smoothFactor = 0.5, weight = 1
-  )
 
-leaflet() %>% 
-  addCircleMarkers(data = pig,
-    lng = ~lon, lat = ~lat, radius = 1, 
-    stroke = FALSE, fillOpacity = 0.8, color = "#336666") %>%
-  addPolygons(data = co, stroke = TRUE, fillOpacity = 0, 
-    smoothFactor = 0.5, weight = 1)  %>%
-  addPolygons(data = lakes, stroke = FALSE, fillOpacity = 1, 
-    smoothFactor = 0.5, weight = 1)   
+# Find in which polygon each geocoordinates fall in !!!
+# https://andybeger.com/2014/03/29/associating-points-with-polygons-in-r/
+coordinates(pig) <- ~ lon + lat
+proj4string(pig) <- proj4string(mu)
+pig <- cbind(pig, over(pig, mu) %>% select(BFS_NUMMER))
 
+sum(is.na(pig$BFS_NUMMER))
+
+
+basem_url <- 'http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+basem_attribution <- '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>'
+
+popup <- paste0("<strong>", pig$locality, "</strong><br>", htmlLink(pig$url, "picture"))
   
+map <- leaflet(height = 900) %>% addTiles(urlTemplate = basem_url, attribution = basem_attribution)  %>%
+  addCircleMarkers(data = pig,
+    lng = ~lon, lat = ~lat, radius = 0.8, 
+    stroke = FALSE, fillOpacity = 0.3, color = '#996666', popup = popup)
 
 
-flickr.photos.getInfo
+save_html(
+  tags$html(
+    tags$head(includeHTML("styles.html")),
+    tags$body(    
+      div(class="graphic", map),
+      HTML('<script type="text/javascript" src="https://www.swissinfo.ch/static/Themes/basic/js/vendor/iframeResizer.contentWindow.3.5.3.min.js"></script>')
+    )
+  ), 
+file = "flickr_Swiss_test.html", libdir = "js")     
 
+original <- list.files("js", "leaflet.css", full.names = T, recursive = T)
+file.copy(list.files(system.file("extdata", package="swiRcharts"), 'leaflet.css', full.names = T), original, overwrite = T)
+    
+    
 
-
-
+    
 
 flickr.photos.geo.getLocation
 
