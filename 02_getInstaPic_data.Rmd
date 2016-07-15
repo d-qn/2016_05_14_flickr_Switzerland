@@ -1,0 +1,126 @@
+---
+title: "flickr map Switzerland"
+author: "Duc-Quang Nguyen"
+date: "13 July 2016"
+output: html_document
+---
+
+
+* [analyze-instagram-r](http://thinktostart.com/analyze-instagram-r/)
+* [instagram location endpoints doc](https://www.instagram.com/developer/endpoints/locations/)
+* [tutorial instaR ](https://bigdataenthusiast.wordpress.com/2016/03/22/exploring-instagram-api-using-r/)
+* [hex map](http://unconj.ca/blog/not-all-population-maps-are-boring.html)
+
+```{r setup, include=FALSE}
+require(httr)
+library(RCurl)
+library(magrittr)
+library(dplyr)
+library(swiMap)
+library(ggplot2)
+library(jsonlite)
+library(parallel)
+
+startDate <- as.Date("2014-01-01")
+endDate <- as.Date("2016-05-18") #Sys.Date()
+freqTime <- "week"
+
+authenticafy <- T
+
+getPics <- F
+getInfoPics <- F
+getFavs <- F ## TODO
+
+if(authenticafy) {
+  require(httr)
+  full_url <- oauth_callback()
+  full_url <- gsub("(.*localhost:[0-9]{1,5}/).*", x=full_url, replacement="\\1")
+  print(full_url)
+ 
+  app_name <- "Swiss map of pics"
+  client_id <- "d12d490454704ec48ffc7aa1c096107b"
+  client_secret <- "d2028c463e1b44fcb4ad0882d428ad10"
+  scope <- "basic"
+  
+  instagram <- oauth_endpoint(
+    authorize = "https://api.instagram.com/oauth/authorize",
+    access = "https://api.instagram.com/oauth/access_token")
+  myapp <- oauth_app(app_name, client_id, client_secret)
+  
+  ig_oauth <- oauth2.0_token(instagram, myapp,scope="basic",  type = "application/x-www-form-urlencoded",cache=FALSE)
+  tmp <- strsplit(toString(names(ig_oauth$credentials)), '"')
+  token <- tmp[[1]][4]
+  save(token, file = "../_helpers/instatoken.Rdata")
+} {
+  load("../_helpers/instatoken.Rdata")
+}
+```
+
+
+```{r create a grid of data points in Switzerland locations for insta search}
+#http://bboxfinder.com/#45.809658,5.745850, 47.813155,10.563354
+bbox <- data.frame(lat = c(45.809658, 47.813155), lon = c(5.745850, 10.563354))
+
+require("maps")
+world <- map_data("world")
+ch <- world[which(world$region == "Switzerland"),]
+ch.map <- ggplot(ch, aes(x = long, y = lat, group = group)) + 
+  geom_path() + coord_equal() + theme_minimal()
+
+# Switzeralnd north-sound 220 kilometresand an east-west length of about 350 kilometres 
+v.n <- 150 # (220 * 1000) / 1500
+h.n <- 240 # 350 * 1000 / 1500
+
+require(fields)
+lats <- seq(bbox$lat[1], bbox$lat[2], length.out = v.n)
+lons <- seq(bbox$lon[1], bbox$lon[2], length.out = h.n)
+grid.l<- list(lons, lats) 
+loc.grid <- make.surface.grid(grid.l)
+loc.grid <- as.data.frame(loc.grid) %>% rename(lon = V1, lat = V2)
+
+ch.map + geom_point(data = loc.grid, aes(x = lon, y = lat, group = 1), alpha = 0.3, size = 0.1) 
+
+## get only grid points within Switzerland 
+#http://www.inside-r.org/packages/cran/sp/docs/point.in.polygon
+require(sp)
+loc.grid <- loc.grid[which(point.in.polygon(loc.grid$lon, loc.grid$lat, ch$long, ch$lat) == 1),]
+
+# visual check
+ch.map + geom_point(data = loc.grid, aes(x = lon, y = lat, group = 1), alpha = 0.3, size = 0.01) 
+
+```
+
+```{r instagram API query helpers}
+get_instaLocSearch <- function(lat, lng, token, distance = 5000) {
+  fromJSON(getURL(paste0('https://api.instagram.com/v1/locations/search?lat=', 
+                         lat,'&lng=', lng, '&access_token=', token, '&distance=', 5000)))  
+}
+
+get_instaMediaInfo <- function(id, token) {
+    fromJSON(getURL(paste0('https://api.instagram.com/v1/media/', id,
+                         '&access_token=', token)))
+}
+
+```
+
+```{r instagram API queries}
+
+loc_search <- lapply(1:10, function(i) {
+  cat("\t", i)
+  res <- get_instaLocSearch(loc.grid[i, 'lat'], loc.grid[i, 'lon'], token, 5000) 
+  
+  if(res$code == 429) {
+    warning("\nMax number of requests reached! About to sleep for an hour...\n")
+    Sys.sleep(3600)
+  }
+  if(res$code == 200) {
+    res$data
+  }
+})
+
+get_instaMediaInfo(904181894, token)
+
+
+get_instaLocSearch(lat, lng, token, 5000)
+
+```

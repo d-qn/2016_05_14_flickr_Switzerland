@@ -12,9 +12,6 @@ output: html_document
 * [my API page](https://www.flickr.com/services/apps/by/112725067@N03)
 * [official doc API](https://www.flickr.com/services/api/)
 
-* [analyze-instagram-r](http://thinktostart.com/analyze-instagram-r/)
-# https://www.instagram.com/developer/endpoints/locations/
-
 ```{r setup, include=FALSE}
 require(httr)
 library(RCurl)
@@ -24,18 +21,17 @@ library(jsonlite)
 library(parallel)
 
 startDate <- as.Date("2014-01-01")
-endDate <- as.Date("2016-05-18") #Sys.Date()
+endDate <- as.Date("2016-07-14") #Sys.Date()
 freqTime <- "week"
   
 getPics <- F
 getInfoPics <- F
-getFavs <- F ## TODO
+getFavs <- F 
 
 # Use procedure in http://timelyportfolio.github.io/rCharts_Rflickr/iso_httr.html works!
 # save(api_key, secret, flickr.app, flickr.endpoint, tok, file = "~/swissinfo/_helpers/secrets.Rdata")
 
 load("~/swissinfo/_helpers/secrets.Rdata")
-
 
 if(getPics) {
   # flickr search API function
@@ -94,7 +90,7 @@ stopifnot(!any(duplicated(pics)))
 
 if(getInfoPics) {
   # flickr API get info 
-getInfo <- function(id, api_key = api_key, tok = tok) {
+  getInfo <- function(id, api_key = api_key, tok = tok) {
     call <- GET(url=sprintf(
       "https://api.flickr.com/services/rest/?method=flickr.photos.getInfo&api_key=%s&photo_id=%s&format=json&nojsoncallback=1"
       , api_key
@@ -105,26 +101,26 @@ getInfo <- function(id, api_key = api_key, tok = tok) {
       jsonlite::fromJSON () 
     
     if(call[[2]] == "ok") {
-    result <- call %$% photo
-    data.frame(
-      id = as.numeric(result$id), 
-      lat = as.numeric(result$location$latitude), 
-      lon = as.numeric(result$location$longitude), 
-      locality = if(is.null(result$location$locality$`_content`)) "" else result$location$locality$`_content`, 
-      county = if(is.null(result$location$county$`_content`)) "" else result$location$county$`_content`, 
-      region = if(is.null(result$location$region$`_content`)) "" else result$location$region$`_content`, 
-      country = if(is.null(result$location$country$`_content`)) "" else result$location$country$`_content`,
-      isFavorite = as.numeric(result$isfavorite),
-      dateTaken = as.character(result$dates$taken),
-      views = as.numeric(result$views),
-      url = as.character(result$url$url$`_content`)
-    )     
+      result <- call %$% photo
+      data.frame(
+        id = as.numeric(result$id), 
+        lat = as.numeric(result$location$latitude), 
+        lon = as.numeric(result$location$longitude), 
+        locality = if(is.null(result$location$locality$`_content`)) "" else result$location$locality$`_content`, 
+        county = if(is.null(result$location$county$`_content`)) "" else result$location$county$`_content`, 
+        region = if(is.null(result$location$region$`_content`)) "" else result$location$region$`_content`, 
+        country = if(is.null(result$location$country$`_content`)) "" else result$location$country$`_content`,
+        isFavorite = as.numeric(result$isfavorite),
+        dateTaken = as.character(result$dates$taken),
+        views = as.numeric(result$views),
+        url = as.character(result$url$url$`_content`)
+      )     
     } else {
       warning("\nAPI call for ", id, " failed!")
       NULL
     }
-}  
-    
+  }  
+  
   # http://gforge.se/2015/02/how-to-go-parallel-in-r-basics-tips/
   # Calculate the number of cores
   # Initiate cluster
@@ -132,12 +128,13 @@ getInfo <- function(id, api_key = api_key, tok = tok) {
   clusterExport(cl=cl, varlist=c("pics", "getInfo", "api_key", "tok", "%>%", "GET", "content", "%$%"))
   
   infos <- do.call(rbind, parLapply(cl, 1:nrow(pics), function(i) {
-     cat("\n", i, "/", nrow(pics), "\t", pics[i, 'id'])
-     getInfo(pics[i, 'id'], api_key = api_key, tok= tok) 
+    cat("\n", i, "/", nrow(pics), "\t", pics[i, 'id'])
+    getInfo(pics[i, 'id'], api_key = api_key, tok= tok) 
   }))
   stopCluster(cl)
   
-  pici <- right_join(pics, infos)
+  pics$id <- as.numeric(pics$id)
+  pici <- right_join(pics, infos) %>% select(-isFavorite, -ispublic)
   
   write.csv(pici, file = paste0("data/", startDate, "_", endDate, "_by", freqTime, "_info.csv"), row.names = F)
 } else {
@@ -146,74 +143,65 @@ getInfo <- function(id, api_key = api_key, tok = tok) {
 
 if(getFavs) {
   # get favorites count, a different API call!!!
-  # https://www.flickr.com/services/api/flickr.photos.getFavorites.html
-  flickr.photos.getFavorites  
+  # https://www.flickr.com/services/api/flickr.photos.getFavorites.html  --> flickr.photos.getFavorites  
+   # flickr API get info 
+  getFav <- function(id, api_key = api_key, tok = tok) {
+    call <- GET(url=sprintf(
+      "https://api.flickr.com/services/rest/?method=flickr.photos.getFavorites&api_key=%s&photo_id=%s&format=json&nojsoncallback=1"
+      , api_key
+      , id
+      , tok$credentials$oauth_token
+    ))  %>%
+      content( as = "text", encoding="UTF-8") %>%
+      jsonlite::fromJSON () 
+    
+    if(call[[2]] == "ok") {
+      result <- call %$% photo
+      data.frame(
+        id = as.numeric(result$id), 
+        faveCount = as.numeric(result$total)
+      )     
+    } else {
+      warning("\nAPI call for ", id, " failed!")
+      NULL
+    }
+  }  
   
+  # http://gforge.se/2015/02/how-to-go-parallel-in-r-basics-tips/
+  # Calculate the number of cores
+  # Initiate cluster
+  cl <- makeCluster(detectCores(), outfile ="")
+  clusterExport(cl=cl, varlist=c("pici", "getFav", "api_key", "tok", "%>%", "GET", "content", "%$%"))
+  
+  favs <- do.call(rbind, parLapply(cl, 1:nrow(pici), function(i) {
+    cat("\n", i, "/", nrow(pici), "\t", pici[i, 'id'])
+    getFav(pici[i, 'id'], api_key = api_key, tok = tok) 
+  }))
+  stopCluster(cl)
+  
+  picif <- right_join(pici, favs)
+  
+  write.csv(picif, file = paste0("input/", startDate, "_", endDate, "_by", freqTime, "_faved.csv"), row.names = F)
+} else {
+  picif <- read.csv(file = paste0("input/", startDate, "_", endDate, "_by", freqTime, "_faved.csv"), stringsAsFactors = F)
 }
 
-
-
 #discard pics not taken in Switzerland
-pig <- pici %>% filter(country == "Switzerland")
-library(leaflet)
-library(htmltools)
-library(swiMap)
-library(swiRcharts)
-require(rgdal)
-require(rgeos)
-require(maptools)
 
-path.ch <- getPathShp('CH', year = 2014)
-co <- readOGR(path.ch, layer = 'country')
-lakes <- readOGR(path.ch, layer = 'lakes')
-mu <- readOGR(path.ch, layer = 'municipalities')
+## get only grid points within Switzerland 
+#http://www.inside-r.org/packages/cran/sp/docs/point.in.polygon
+require(sp)
+require("maps")
+world <- map_data("world")
+ch <- world[which(world$region == "Switzerland"),]
+ch.map <- ggplot(ch, aes(x = long, y = lat, group = group)) + 
+  geom_path() + coord_equal() + theme_minimal()
 
-co <- spTransform(co, CRS("+init=epsg:4326"))
-lakes <- spTransform(lakes, CRS("+init=epsg:4326"))
-mu <- spTransform(mu, CRS("+init=epsg:4326"))
-mu.df <- formatShp(mu)
+picifs <- picif[which(point.in.polygon(picif$lon, picif$lat, ch$long, ch$lat) == 1),]
 
+write.csv(picifs, file = paste0("input/", startDate, "_", endDate, "_by", freqTime, "_faved_CH.csv"), row.names = F)
 
-# Find in which polygon each geocoordinates fall in !!!
-# https://andybeger.com/2014/03/29/associating-points-with-polygons-in-r/
-coordinates(pig) <- ~ lon + lat
-proj4string(pig) <- proj4string(mu)
-pig <- cbind(pig, over(pig, mu) %>% select(BFS_NUMMER))
-
-sum(is.na(pig$BFS_NUMMER))
-
-
-basem_url <- 'http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-basem_attribution <- '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>'
-
-popup <- paste0("<strong>", pig$locality, "</strong><br>", htmlLink(pig$url, "picture"))
-  
-map <- leaflet(height = 900) %>% addTiles(urlTemplate = basem_url, attribution = basem_attribution)  %>%
-  addCircleMarkers(data = pig,
-    lng = ~lon, lat = ~lat, radius = 0.8, 
-    stroke = FALSE, fillOpacity = 0.3, color = '#996666', popup = popup)
-
-
-save_html(
-  tags$html(
-    tags$head(includeHTML("styles.html")),
-    tags$body(    
-      div(class="graphic", map),
-      HTML('<script type="text/javascript" src="https://www.swissinfo.ch/static/Themes/basic/js/vendor/iframeResizer.contentWindow.3.5.3.min.js"></script>')
-    )
-  ), 
-file = "flickr_Swiss_test.html", libdir = "js")     
-
-original <- list.files("js", "leaflet.css", full.names = T, recursive = T)
-file.copy(list.files(system.file("extdata", package="swiRcharts"), 'leaflet.css', full.names = T), original, overwrite = T)
-    
-    
-
-    
-
-flickr.photos.geo.getLocation
-
-
-
+# visual check
+ch.map + geom_point(data = picifs, aes(x = lon, y = lat, group = 1), alpha = 0.3, size = 0.1) 
 
 ```

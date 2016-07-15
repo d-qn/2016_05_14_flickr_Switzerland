@@ -1,0 +1,207 @@
+---
+title: "02_mineFlickrData"
+author: "Duc-Quang Nguyen"
+date: "14 July 2016"
+output: html_document
+---
+
+* [hex map](http://unconj.ca/blog/not-all-population-maps-are-boring.html)
+
+```{r setup, include=FALSE}
+library(knitr)
+library(magrittr)
+library(dplyr)
+library(leaflet)
+library(htmltools)
+library(swiMap)
+library(swiRcharts)
+require(ggplot2)
+require(rgdal)
+require(rgeos)
+require(maptools)
+
+generateMapAllPics <- F
+extraVisualCheck <- F
+generateBunchVarMaps <- F
+generateBunchDistrib <- F
+
+startDate <- as.Date("2014-01-01")
+endDate <- as.Date("2016-07-14") #Sys.Date()
+freqTime <- "week"
+
+data.file <- paste0("input/", startDate, "_", endDate, "_by", freqTime, "_faved_CH.csv")
+
+picifs <- read.csv(file = data.file, stringsAsFactors = F)
+
+```
+
+```{r visual check by mapping data, echo = F, include=F}
+path.ch <- getPathShp('CH', year = 2014)
+co <- readOGR(path.ch, layer = 'country')
+lakes <- readOGR(path.ch, layer = 'lakes')
+mu <- readOGR(path.ch, layer = 'municipalities')
+
+co <- spTransform(co, CRS("+init=epsg:4326"))
+co.df <- formatShp(co) %>% select(long, lat, order, hole, id, group, NAME, EINWOHNERZ)
+lakes <- spTransform(lakes, CRS("+init=epsg:4326"))
+mu <- spTransform(mu, CRS("+init=epsg:4326"))
+mu.df <- formatShp(mu) %>% 
+  select(long, lat, order, hole, id, group, BFS_NUMMER, NAME, EINWOHNERZ) %>%
+  rename(lng = long)
+
+if(generateMapAllPics) {
+  basem_url <- 'http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+  basem_attribution <- '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>'
+  
+  popup <- paste0("<strong>", picifs$locality, "</strong><br>", htmlLink(picifs$url, "picture"))
+  map <- leaflet(height = 900) %>% 
+    addTiles(urlTemplate = basem_url, attribution = basem_attribution)  %>%
+    addCircles(
+      data = picifs,lng = ~lon, lat = ~lat, radius = 0.8, 
+      stroke = FALSE, fillOpacity = 0.3, color = '#996666', popup = popup
+    )
+  save_html(
+    tags$html(
+      tags$head(includeHTML("styles.html")),
+      tags$body(    
+        div(class="graphic", map),
+        HTML(iframeresizer)
+      )
+    ), file = "flickr_Swiss_checkAll.html", libdir = "js")     
+  
+  original <- list.files("js", "leaflet.css", full.names = T, recursive = T)
+  file.copy(list.files(system.file("extdata", package="swiRcharts"), 'leaflet.css', full.names = T), original, overwrite = T)  
+}
+
+```
+
+
+
+```{r map pics to municipalities and compute various indicators, warning = F, message= F, echo = F}
+# Find in which polygon each geocoordinates fall in !!!
+# https://andybeger.com/2014/03/29/associating-points-with-polygons-in-r/
+pig.tmp <- picifs
+coordinates(pig.tmp) <- ~ lon + lat
+proj4string(pig.tmp) <- proj4string(mu)
+data <- cbind(picifs, over(pig.tmp, mu) %>% select(BFS_NUMMER))
+
+if(extraVisualCheck) {
+  cat("\n There are:") 
+  sum(is.na(data$BFS_NUMMER))
+  cat("\t pics not mapped to any municipalities. Here is map of them") 
+  ch.map <- ggplot(co.df, aes(x = long, y = lat, group = group)) + 
+    geom_path() + coord_equal() + theme_minimal()
+  ch.map + geom_point(
+    data = data %>% filter(is.na(BFS_NUMMER)), 
+    aes(x = lon, y = lat, group = 1), alpha = 0.3, size = 1, colour = "red"
+  )
+}
+
+commune.dat <- as.data.frame(loadCommunesCHportraits()) %>% 
+  select(Habitants, `Densité de la population par km²`)
+
+# compute the number of pics per commune
+com <- data %>% group_by(BFS_NUMMER) %>% 
+  summarise(n = length(id), 
+            totViews = sum(views), 
+            medViews = median(views),
+            diffUser = length(unique(owner)),
+            totFav = sum(faveCount),
+            medFav = median(faveCount)
+  ) %>% ungroup()
+
+com <- cbind(com, commune.dat[match(com$BFS_NUMMER, as.numeric(rownames(commune.dat))),])
+
+com$totFavBytotPic <- com$totFav / com$n
+com$totViewBytotPic <- com$totViews / com$n
+
+com$picByCapita <- com$n / com$Habitants
+com$totViewsByCapita <- com$totViews / com$Habitants
+com$medViewsByCapita <- com$medViews / com$Habitants
+com$UserByCapita <- com$diffUser / com$Habitants
+com$totFavByCapita <- com$totFav / com$Habitants
+com$medFavByCapita <- com$medFav / com$Habitants
+
+vars <- colnames(com)[which(!colnames(com) %in% c(
+  'BFS_NUMMER', 'Habitants', 'Densité de la population par km²'))]
+
+if(generateBunchVarMaps) {
+  plotbyMuni <- function(mu, com = com, var) {
+    cat ("\n", "dealing right now with: ", var)
+    mun <- mu
+    dd <- com %>% select(one_of(c('BFS_NUMMER', var)))
+    colnames(dd)[which(colnames(dd) == var)] <- 'variable'
+    
+    mun@data <- left_join(mun@data, dd)
+    #pal <- colorQuantile("YlGn", NULL, n = 3)
+    pal <- colorBin("YlGn", NULL, n = 10)
+    
+    popup <- paste0(
+      "<strong>", mun$NAME, "</strong>","<br>", var, ": <strong>", mun$variable, "</strong>"
+    )
+    
+    map <- leaflet(data = mun) %>%
+      addPolygons(
+        fillColor = ~pal(variable), fillOpacity = 0.6, 
+        stroke = F, popup = popup
+      ) %>%
+      addLegend(
+        "bottomright", pal = pal, values = ~variable,
+        title = var, opacity = 1
+      )
+    
+    save_html(
+      tags$html(
+        tags$head(includeHTML("styles.html")),
+        tags$body(    
+          div(class="graphic", map),
+          HTML(iframeresizer)
+        )
+      ), file = paste0("flickrPic_viz_", var, ".html"), libdir = "js")     
+  }
+  sapply(vars, function(v) plotbyMuni(mu, com, v))  
+}
+```
+
+### The top pics
+```{r mine data hist, echo = F}
+if(generateBunchDistrib) {
+  plotDistrib <- function(com, var) {
+    dd <- com
+    dd$binN <- cut(dd$n, unique(quantile(dd$n, probs = seq(0, 1, 0.1)), na.rm = T))
+    dd$binDiffUser <- cut(dd$diffUser, unique(quantile(dd$diffUser, probs = seq(0, 1, 0.1)), na.rm = T))
+    
+    p1 <- ggplot(data = dd) + geom_histogram(aes_string(var)) + theme_minimal()
+    print(p1 + ggtitle (var))
+    print(p1 + facet_wrap(~ binN) +  ggtitle (paste0(var, " by ", "bins n pics")))
+    print(p1 + facet_wrap(~ binDiffUser) + ggtitle (paste0(var, " by ", "bins n diff users")))
+  }
+  
+  invisible(sapply(vars, function(v) plotDistrib(com, v)))  
+}
+
+```
+
+```{r mine data, results = 'asis'}
+getTheTopPics <- function(com, v, n = 5, data) {
+  cat("\n\n")
+  cat("#", v, " the top ", n, " pics", "\n")
+  topN <- com[order(com[,v], decreasing = T),] %>% head(n) 
+      cat("\n")
+  knitr::kable(topN[,1:6], digits = 2)
+  knitr::kable(topN[,7:13], digits = 2)
+  cat(paste0("* ", as.character(mu.df[match(topN$BFS_NUMMER, mu.df$BFS_NUMMER), "NAME"]),  "\n"))
+  cat("\n")
+  bfsn <- topN %>% select(BFS_NUMMER) %>% unlist(use.names = F)
+  idx <- which(data$BFS_NUMMER %in% bfsn)
+  if(length(idx) > 20) {
+    idx <- idx[order(data[idx,"faveCount"], decreasing = T)] %>% head(20)
+  } else {
+    idx <- idx[order(data[idx,"faveCount"], decreasing = T)] 
+  }
+  cat(paste0("[pic](", data[idx,'url'], ")"))
+  cat("\n\n")
+}
+
+invisible(sapply(vars, function(v) getTheTopPics(com, v, n = 5, data)))
+```
