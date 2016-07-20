@@ -29,7 +29,7 @@ largestAgglo.file <- "input/5_largestCities_CH.csv"
 trad.file <- "input/flickr map - Sheet1.csv"
 
 
-colourText_bkbg <- '#e6f2ff'
+colourText_bkbg <- '#ffffff'
 
 ```
 
@@ -85,8 +85,8 @@ mu.lab$label <- as.character(mu.df[match(idList, mu.df$BFS_NUMMER), 'NAME'])
 ```{r plot maps, include=FALSE}
 # helper mapping 
 bk_mapTheme <- function(
-  base_size = 10.5, base_family = "OpenSans-CondensedLight",
-  title_family = "OpenSans-CondensedBold", subtitle_family = "OpenSans-CondensedLightItalic",
+  base_size = 11, base_family = "OpenSans-CondensedLight",
+  title_family = "OpenSans-CondensedBold", subtitle_family = "OpenSans-CondensedLight",
   bg.colour = '#1a0000', colour = colourText_bkbg
  ) {
      swi_theme(
@@ -103,8 +103,8 @@ bk_mapTheme <- function(
       plot.title = element_text(colour = colour), 
       plot.subtitle = element_text(colour = "white"),
       plot.caption = element_text(colour = colour),
-      legend.text = element_text(colour = "#f2f2f2", size = 7),
-      legend.title = element_text(colour = "#f2f2f2", size = 9),
+      legend.text = element_text(colour = "#f2f2f2", size = 9, vjust = 1),
+      legend.title = element_text(colour = "#f2f2f2", size = 10),
       legend.key.width = unit(17, "lines"),
       legend.key.height = unit(8, "lines"),
       legend.position = "top",
@@ -165,10 +165,10 @@ map2 <- ggplot(co.df) +
   geom_text(
     data = largeAgglo,
     aes(x = lon, y = lat, group = 1, label = label),
-    family = "OpenSans-CondensedLight",
+    family = "OpenSans-Condensed",
     colour = colourText_bkbg,
     nudge_y = -0.082,
-    size = 3
+    size = 3.5
   ) +
   labs(title = txt['title2', lang], subtitle = txt['descr2', lang])
 
