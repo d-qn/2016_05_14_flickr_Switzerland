@@ -1,0 +1,246 @@
+---
+title: "03_createFlickrMaps"
+author: "Duc-Quang Nguyen"
+date: "19 July 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(magrittr)
+library(dplyr)
+library(htmltools)
+library(swiMap)
+library(swiTheme)
+require(ggplot2)
+require(rgdal)
+require(rgeos)
+require(maptools)
+require(classInt)
+require(viridis)
+library(swiRcharts)
+#library(leaflet)
+
+pics.file <- "input/all_flickr_pics.csv"
+com.file <-  "input/flickr_byMunicipalities.csv"
+
+densityPop.file <- "input/swissPopDensity.csv"
+largestAgglo.file <- "input/5_largestCities_CH.csv"
+
+trad.file <- "input/flickr map - Sheet1.csv"
+
+
+colourText_bkbg <- '#e6f2ff'
+
+```
+
+
+```{r load data, include=FALSE}
+txt <- read.csv(trad.file, row.names = 1, stringsAsFactors = F)
+# discard incomplete translations
+cidx <- unique(which(txt =="" | is.na(txt), T)[,2])
+if(length(cidx > 0)) {
+  warning(paste(colnames(txt)[cidx], collapse = "\t"), " languages will be discarded!", "\n")
+  txt <- txt[,-cidx, drop = F]
+}
+colnames(txt)
+
+
+data <- read.csv(pics.file, stringsAsFactors = F, row.names = NULL)
+com <- read.csv(com.file, stringsAsFactors = F, row.names = NULL, check.names = F)
+
+
+densityPop <- read.csv(densityPop.file)
+
+largeAgglo <- read.csv(largestAgglo.file)
+
+# load map data
+path.ch <- getPathShp('CH', year = 2014)
+co <- readOGR(path.ch, layer = 'country')
+lakes <- readOGR(path.ch, layer = 'lakes')
+ca <- readOGR(path.ch, layer = 'cantons')
+mu <- readOGR(path.ch, layer = 'municipalities')
+
+co <- spTransform(co, CRS("+init=epsg:4326"))
+co.df <- formatShp(co) %>% select(long, lat, order, hole, id, group, NAME, EINWOHNERZ)
+
+ca <- spTransform(ca, CRS("+init=epsg:4326"))
+ca.df <- formatShp(ca) %>% select(long, lat, order, hole, id, group, NAME, EINWOHNERZ)
+
+lakes <- spTransform(lakes, CRS("+init=epsg:4326"))
+lakes.df <- formatShp(lakes)
+
+mu <- spTransform(mu, CRS("+init=epsg:4326"))
+mu.df <- formatShp(mu) %>% 
+  select(long, lat, order, hole, id, group, BFS_NUMMER, NAME, EINWOHNERZ) %>%
+  rename(lng = long)
+
+# get the municipalities centroids to label map
+idList <- mu@data$BFS_NUMMER
+centroids.df <- as.data.frame(coordinates(mu))
+names(centroids.df) <- c("lon", "lat") 
+mu.lab <- cbind(centroids.df, id = idList)
+mu.lab$label <- as.character(mu.df[match(idList, mu.df$BFS_NUMMER), 'NAME'])
+```
+
+```{r plot maps, include=FALSE}
+# helper mapping 
+bk_mapTheme <- function(
+  base_size = 10.5, base_family = "OpenSans-CondensedLight",
+  title_family = "OpenSans-CondensedBold", subtitle_family = "OpenSans-CondensedLightItalic",
+  bg.colour = '#1a0000', colour = colourText_bkbg
+ ) {
+     swi_theme(
+       y_gridlines = F, base_size = base_size, base_family = base_family, 
+       title_family = title_family, subtitle = subtitle_family
+     ) + 
+    theme(
+      panel.background = element_rect(fill = bg.colour, size = 0),
+      plot.background = element_rect(fill = bg.colour, size = 0),
+      axis.line = element_blank(),
+      axis.ticks = element_blank(), 
+      axis.title = element_blank(), 
+      axis.text = element_blank(),
+      plot.title = element_text(colour = colour), 
+      plot.subtitle = element_text(colour = "white"),
+      plot.caption = element_text(colour = colour),
+      legend.text = element_text(colour = "#f2f2f2", size = 7),
+      legend.title = element_text(colour = "#f2f2f2", size = 9),
+      legend.key.width = unit(17, "lines"),
+      legend.key.height = unit(8, "lines"),
+      legend.position = "top",
+      legend.title.align = 0,
+      plot.margin = unit(c(0.25, 0, 0.1, 0), "cm")
+    ) 
+}
+
+
+lang <- 'EN'
+
+map1 <- ggplot(co.df) + 
+  bk_mapTheme() + 
+  coord_quickmap(expand = F) + 
+  geom_polygon(
+    aes(x = long, y = lat, group = group), 
+    size = 0.25, alpha = 0, color = "#404040") + 
+  geom_polygon(
+    data = lakes.df,  aes(x = long, y = lat, group = group),
+    size = 0, fill = "#404040", colour = "#404040") +
+  geom_jitter(
+    data = data, aes(x = lon, y = lat, group = 1), 
+    colour = "#cceeff", alpha = 0.2, size = 1/10^20) + 
+  labs(title = txt['main.title', lang], subtitle = txt['descr', lang])
+  
+mu.df$densityPop <- densityPop[match(mu.df$BFS_NUMMER, densityPop$OFSKey), 'PopByKm2']
+# hack to put the 0.05 quantile densityPop for NA densityPop muni
+mu.df[which(is.na(mu.df$densityPop) & !is.na(mu.df$EINWOHNERZ)), 'densityPop'] <- quantile(densityPop[,1], 0.05)
+
+largeAgglo$label <- c(txt['Zürich', lang], txt['Genève', lang], 
+                      txt['Basel', lang], txt['Bern', lang], txt['Lausanne', lang])
+
+map2 <- ggplot(co.df) + 
+  bk_mapTheme() + 
+  coord_quickmap(expand = F) + 
+  geom_polygon(
+    aes(x = long, y = lat, group = group), 
+    size = 0.2, alpha = 0, color = "#404040"
+  ) + 
+  geom_polygon(data = mu.df , 
+    aes(x = lng, y = lat, group = group, fill = log10(densityPop)), 
+    size = 0) + 
+  geom_polygon(
+    data = lakes.df,  aes(x = long, y = lat, group = group),
+    size = 0, fill = "#404040", colour = "#404040"
+  ) +  
+  scale_fill_viridis(
+    name = paste0(txt['popdensity', lang], "  "),
+     labels = as.character(c(10^0, 10^1, 10^2, 10^3, 10^4)),
+    discrete = F, option="A", direction = 1
+  ) + 
+  geom_point(
+    data = largeAgglo,
+    aes(x = lon, y = lat, group = 1, size = size),         
+    alpha = 0.85, colour = colourText_bkbg, shape = 1
+  ) + 
+  scale_size(range = c(3,7), name = txt['agglosize', lang]) +
+  geom_text(
+    data = largeAgglo,
+    aes(x = lon, y = lat, group = 1, label = label),
+    family = "OpenSans-CondensedLight",
+    colour = colourText_bkbg,
+    nudge_y = -0.082,
+    size = 3
+  ) +
+  labs(title = txt['title2', lang], subtitle = txt['descr2', lang])
+
+map1.path <- paste0("01_map_flickr_" , lang, "_01.png")
+map2.path <- paste0("01_map_flickr_" , lang, "_02.png")      
+html.outfile <- paste0("01_map_flickr_", lang, ".html")
+
+source <- paste0( txt['source', lang], ": ",  txt['source.name', lang])
+
+png(map1.path,  res = 300, pointsize = 1, height = 900 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
+map1
+dev.off()     
+png(map2.path,  res = 300, pointsize = 1, height = 1070 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
+map2
+dev.off()     
+
+save_html(
+  tags$html(
+    tags$head(includeHTML("styles.html")),
+    tags$body(
+      div(class="graphic",
+          img(src = basename(map1.path), width= "100%"),
+          img(src = basename(map2.path), width= "100%")      
+      ),
+     div(id = "cite", HTML(source)),
+      HTML(iframeresizer)
+    )), file = html.outfile, background = '#1a0000'
+)
+  
+```
+
+```{r plot map for the top municipalities, include=FALSE}
+v <- 'Total number of pictures by municipality'
+
+
+plot
+topN <- com[order(com[,v], decreasing = T),1:4] %>% head(10) 
+dd <- left_join(topN, rename(mu.lab, BFS_NUMMER = id))
+dd <- dd[!duplicated(dd$BFS_NUMMER),]
+colnames(dd)[which(colnames(dd)==v)] <- 'var'
+
+mapTopMuni <- function(dd, title, footer) {
+  
+  mapt <- ggplot(co.df) + 
+    bk_mapTheme() + 
+    coord_quickmap(expand = F) + 
+    geom_polygon(
+      aes(x = long, y = lat, group = group), 
+      size = 0.5, alpha = 0, color = "#d9d9d9") +
+    geom_polygon(
+      data = ca.df, 
+      aes(x = long, y = lat, group = group), 
+      size = 0.1, alpha = 0, color = "#595959") +  
+    geom_polygon(
+      data = lakes.df,  aes(x = long, y = lat, group = group),
+      size = 0, fill = "#595959", colour = "#595959") + 
+    geom_point(
+      data = dd, aes(x = lon, y = lat, group = 1, size = var), 
+      colour = "#f5f0f0", alpha = 0.8) + 
+    geom_label(
+      data = dd, aes(x = lon, y = lat, group = 1, label = label),
+      fill = "#666666",
+      family = "OpenSans-CondensedLight",
+      colour = colourText_bkbg,
+      size = 3,
+      nudge_y = -0.082
+    ) + theme(legend.position = "none") + 
+    labs(title = title, footer = footer)
+  
+}
+
+
+
+
+```

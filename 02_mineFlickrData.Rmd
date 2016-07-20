@@ -14,17 +14,21 @@ library(dplyr)
 library(leaflet)
 library(htmltools)
 library(swiMap)
+library(swiTheme)
 library(swiRcharts)
 require(ggplot2)
 require(rgdal)
 require(rgeos)
 require(maptools)
+require(classInt)
+require(viridis)
 
 generateMapAllPics <- F
 extraVisualCheck <- F
-generateBunchVarMaps <- F
+generateBunchVarMapsInline <- T
 generateBunchDistrib <- F
 
+topN <- 10 # get the topN municipalities 
 startDate <- as.Date("2014-01-01")
 endDate <- as.Date("2016-07-14") #Sys.Date()
 freqTime <- "week"
@@ -48,6 +52,13 @@ mu <- spTransform(mu, CRS("+init=epsg:4326"))
 mu.df <- formatShp(mu) %>% 
   select(long, lat, order, hole, id, group, BFS_NUMMER, NAME, EINWOHNERZ) %>%
   rename(lng = long)
+
+# get the municipalities centroids to label map
+idList <- mu@data$BFS_NUMMER
+centroids.df <- as.data.frame(coordinates(mu))
+names(centroids.df) <- c("lon", "lat") 
+mu.lab <- cbind(centroids.df, id = idList)
+mu.lab$label <- as.character(mu.df[match(idList, mu.df$BFS_NUMMER), 'NAME'])
 
 if(generateMapAllPics) {
   basem_url <- 'http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
@@ -96,71 +107,94 @@ if(extraVisualCheck) {
     aes(x = lon, y = lat, group = 1), alpha = 0.3, size = 1, colour = "red"
   )
 }
+# discasrd picks outside non matching any Swiss municipalities
+data %<>% filter(!is.na(BFS_NUMMER))
+write.csv(data, file = "input/all_flickr_pics.csv", row.names = F)
 
 commune.dat <- as.data.frame(loadCommunesCHportraits()) %>% 
   select(Habitants, `Densité de la population par km²`)
 
 # compute the number of pics per commune
 com <- data %>% group_by(BFS_NUMMER) %>% 
-  summarise(n = length(id), 
-            totViews = sum(views), 
-            medViews = median(views),
-            diffUser = length(unique(owner)),
-            totFav = sum(faveCount),
-            medFav = median(faveCount)
+  summarise(`Total number of pictures by municipality` = length(id), 
+            `Total number of picture' views by municipality` = sum(views), 
+            `Average number of picture' views by municipality`  = mean(views),
+            `Total number of favorited pictures by municipality` = sum(faveCount),
+            `Average number of favorited pictures by municipality` = mean(faveCount)
   ) %>% ungroup()
 
 com <- cbind(com, commune.dat[match(com$BFS_NUMMER, as.numeric(rownames(commune.dat))),])
 
-com$totFavBytotPic <- com$totFav / com$n
-com$totViewBytotPic <- com$totViews / com$n
+com$`total number of favorited / total number of pics by municipality` <- com$`Total number of favorited pictures by municipality` / com$`Total number of pictures by municipality` 
+com$`total number of views / total number of pics by municipality` <- com$`Total number of picture' views by municipality` / com$`Total number of pictures by municipality`
 
-com$picByCapita <- com$n / com$Habitants
-com$totViewsByCapita <- com$totViews / com$Habitants
-com$medViewsByCapita <- com$medViews / com$Habitants
-com$UserByCapita <- com$diffUser / com$Habitants
-com$totFavByCapita <- com$totFav / com$Habitants
-com$medFavByCapita <- com$medFav / com$Habitants
+# per capita
+com$`Total pictures by capita & by municipality` <- com$`Total number of pictures by municipality` / com$Habitants
+com$`Total picture views by capita & by municipality` <- com$`Total number of picture' views by municipality` / com$Habitants
+com$`Average #views by capita and by municipality`  <- com$`Average number of picture' views by municipality` / com$Habitants
+
+# 
+com$`Total favorited pictures by capita & by municipality` <- com$`Total number of favorited pictures by municipality` / com$Habitants
+com$`Average favorited pictures by capita & by municipality` <- com$`Average number of favorited pictures by municipality` / com$Habitants
 
 vars <- colnames(com)[which(!colnames(com) %in% c(
   'BFS_NUMMER', 'Habitants', 'Densité de la population par km²'))]
 
-if(generateBunchVarMaps) {
-  plotbyMuni <- function(mu, com = com, var) {
-    cat ("\n", "dealing right now with: ", var)
-    mun <- mu
-    dd <- com %>% select(one_of(c('BFS_NUMMER', var)))
-    colnames(dd)[which(colnames(dd) == var)] <- 'variable'
-    
-    mun@data <- left_join(mun@data, dd)
-    #pal <- colorQuantile("YlGn", NULL, n = 3)
-    pal <- colorBin("YlGn", NULL, n = 10)
-    
-    popup <- paste0(
-      "<strong>", mun$NAME, "</strong>","<br>", var, ": <strong>", mun$variable, "</strong>"
-    )
-    
-    map <- leaflet(data = mun) %>%
-      addPolygons(
-        fillColor = ~pal(variable), fillOpacity = 0.6, 
-        stroke = F, popup = popup
-      ) %>%
-      addLegend(
-        "bottomright", pal = pal, values = ~variable,
-        title = var, opacity = 1
-      )
-    
-    save_html(
-      tags$html(
-        tags$head(includeHTML("styles.html")),
-        tags$body(    
-          div(class="graphic", map),
-          HTML(iframeresizer)
-        )
-      ), file = paste0("flickrPic_viz_", var, ".html"), libdir = "js")     
-  }
-  sapply(vars, function(v) plotbyMuni(mu, com, v))  
+write.csv(com, file = "input/flickr_byMunicipalities.csv", row.names = F)
+
+subtitle <- paste0("Based on the analysis of all flickr pictures geolocalised in Switzerland and uploaded between ", startDate, " and ", endDate, " (", nrow(data), " pictures)")
+
+plotbyMuni <- function(mu.df, com = com, var, subtitle = "") {
+  # cat ("\n", "dealing with: ", var)
+  
+  dd <- com %>% select(one_of(c('BFS_NUMMER', var)))
+  colnames(dd)[which(colnames(dd) == var)] <- 'variable'
+  mun <- suppressMessages(left_join(mu.df, dd))
+  
+  mun$variable[which(is.na(mun$variable))]  <- 0
+  
+  quantile.interval <- unique(quantile(unique(mun$variable), probs = seq(0, 1, by = 1/10), na.rm = T))
+  mun$varBin <- cut(mun$variable, breaks = quantile.interval, include.lowest = TRUE, dig.lab = 9)
+  levels(mun$varBin) <- paste0(gsub(",", " - ", gsub("(\\[|\\]|\\(|\\))", "",  levels(mun$varBin))), "  ")
+  topBFS <- com[order(com[,var], decreasing = T),] %>% head(topN * 1) %>% 
+    select(BFS_NUMMER) %>% unlist(use.names = F)
+  
+  maplab <- filter(mu.lab, id %in% topBFS)
+  maplab <- maplab[match(topBFS, maplab$id),]
+  maplab$val <-  mun[match(topBFS, mun$BFS_NUMMER),'variable']
+  maplab$txt <- paste0(1:nrow(maplab), ". ", maplab$label)
+  
+  mapVar <- ggplot(mun, aes(x = lng, y = lat, group = group)) + 
+    geom_polygon(size = 0 , aes(fill = varBin), color = "#e6e6e6") + 
+    swi_theme(y_gridlines = F, base_size = 14) + 
+    theme(
+      legend.position = "bottom",
+      axis.line = element_blank(),
+      axis.ticks = element_blank(), 
+      axis.title = element_blank(), 
+      axis.text = element_blank()
+    ) + scale_fill_viridis(discrete = T, option="plasma", direction = 1, name = var) +
+    coord_quickmap() + 
+    labs(title = var, subtitle = subtitle, caption = "source: flickr & swisstopo | swissinfo.ch | @duc_qn") +
+    geom_polygon(
+      data = co.df, 
+      aes(x = long, y = lat, group = group), 
+      size = 0.3, alpha = 0, colour = "#666666"
+    ) + 
+    geom_label(data = maplab, 
+               aes(x = lon, y=lat, label = txt, group = 1, size = val), 
+               alpha = 0.6, color = "#262626",
+               label.size = 0, nudge_y = 0.07,
+               family = "OpenSans-CondensedLight")
+  
+  print(mapVar + guides(size = FALSE) + scale_size(range = c(4, 6)))
 }
+# if(generateVarmap) {
+#   png(file = "flickrPic_viz_allIndicators_%02d.png", width = 1000, height = 800)
+#   invisible(sapply(vars, function(v) plotbyMuni(mu.df, com, v, subtitle)))
+#   dev.off()
+# }
+
 ```
 
 ### The top pics
@@ -182,26 +216,35 @@ if(generateBunchDistrib) {
 
 ```
 
-```{r mine data, results = 'asis'}
+## Show heaps of top flickr municipalities
+
+```{r mine data, results = 'asis', message = F, fig.width = 13, fig.height = 11, echo = F}
 getTheTopPics <- function(com, v, n = 5, data) {
   cat("\n\n")
   cat("#", v, " the top ", n, " pics", "\n")
-  topN <- com[order(com[,v], decreasing = T),] %>% head(n) 
-      cat("\n")
-  knitr::kable(topN[,1:6], digits = 2)
-  knitr::kable(topN[,7:13], digits = 2)
-  cat(paste0("* ", as.character(mu.df[match(topN$BFS_NUMMER, mu.df$BFS_NUMMER), "NAME"]),  "\n"))
+  if(generateBunchVarMapsInline) plotbyMuni(mu.df, com = com, var = v, subtitle)
+  
+  topN <- com[order(com[,v], decreasing = T),] %>% head(n + 3) 
+  cat("\n")
+  print(knitr::kable(topN, digits = 2, row.names = F))
+  cat("\n")
+  mu.names <- as.character(mu.df[match(topN$BFS_NUMMER, mu.df$BFS_NUMMER), "NAME"])
   cat("\n")
   bfsn <- topN %>% select(BFS_NUMMER) %>% unlist(use.names = F)
-  idx <- which(data$BFS_NUMMER %in% bfsn)
-  if(length(idx) > 20) {
-    idx <- idx[order(data[idx,"faveCount"], decreasing = T)] %>% head(20)
-  } else {
-    idx <- idx[order(data[idx,"faveCount"], decreasing = T)] 
-  }
-  cat(paste0("[pic](", data[idx,'url'], ")"))
+  names(bfsn) <- mu.names
+  
+  idx <- match(data$BFS_NUMMER, bfsn) 
+  
+  invisible(sapply(1:length(bfsn), function(i) {
+    dd <- data[which(idx == i),c('url', 'faveCount', 'views', 'region', 'title', "lon", "lat")] %>%
+      arrange(desc(faveCount)) %>% head(n)
+    cat(paste0("* ", names(bfsn)[i], " - ", unique(dd$region),"\n"))
+    dd %>% select(-region)
+    cat(paste0("    + [", dd$title, "](", dd$url, ")", "\tfav: ", dd$faveCount, " \t views: ", dd$views, "(", dd$lon, " ", dd$lat, ')\n'))
+  }))
+  
   cat("\n\n")
 }
 
-invisible(sapply(vars, function(v) getTheTopPics(com, v, n = 5, data)))
+invisible(sapply(vars, function(v) getTheTopPics(com, v, n = topN, data)))
 ```
