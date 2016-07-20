@@ -123,7 +123,123 @@ $(document).ready(function () {
 </div>
 
 
+<pre class="r"><code># helper mapping 
+bk_mapTheme &lt;- function(
+  base_size = 11, base_family = &quot;OpenSans-CondensedLight&quot;,
+  title_family = &quot;OpenSans-CondensedBold&quot;, subtitle_family = &quot;OpenSans-CondensedLight&quot;,
+  bg.colour = '#1a0000', colour = colourText_bkbg
+ ) {
+     swi_theme(
+       y_gridlines = F, base_size = base_size, base_family = base_family, 
+       title_family = title_family, subtitle = subtitle_family
+     ) + 
+    theme(
+      panel.background = element_rect(fill = bg.colour, size = 0),
+      plot.background = element_rect(fill = bg.colour, size = 0),
+      axis.line = element_blank(),
+      axis.ticks = element_blank(), 
+      axis.title = element_blank(), 
+      axis.text = element_blank(),
+      plot.title = element_text(colour = colour), 
+      plot.subtitle = element_text(colour = &quot;white&quot;),
+      plot.caption = element_text(colour = colour),
+      legend.text = element_text(colour = colourText_bkbg, size = 9, vjust = 2),
+      legend.title = element_text(colour = colourText_bkbg, size = 10),
+      legend.key.width = unit(17, &quot;lines&quot;),
+      legend.key.height = unit(8, &quot;lines&quot;),
+      legend.position = &quot;top&quot;,
+      legend.title.align = 0,
+      plot.margin = unit(c(0.25, 0, 0.1, 0), &quot;cm&quot;)
+    ) 
+}
 
+
+lang &lt;- 'EN'
+
+map1 &lt;- ggplot(co.df) + 
+  bk_mapTheme() + 
+  coord_quickmap(expand = F) + 
+  geom_polygon(
+    aes(x = long, y = lat, group = group), 
+    size = 0.25, alpha = 0, color = border.color) + 
+  geom_polygon(
+    data = lakes.df,  aes(x = long, y = lat, group = group),
+    size = 0, fill = border.color, colour = border.color) +
+  geom_jitter(
+    data = data, aes(x = lon, y = lat, group = 1), 
+    colour = &quot;#e6ffff&quot;, alpha = 0.2, size = 1/10^20) + 
+  labs(title = txt['main.title', lang], subtitle = txt['descr', lang])
+  
+mu.df$densityPop &lt;- densityPop[match(mu.df$BFS_NUMMER, densityPop$OFSKey), 'PopByKm2']
+# hack to put the 0.05 quantile densityPop for NA densityPop muni
+mu.df[which(is.na(mu.df$densityPop) &amp; !is.na(mu.df$EINWOHNERZ)), 'densityPop'] &lt;- quantile(densityPop[,1], 0.05)
+
+largeAgglo$label &lt;- c(txt['Zürich', lang], txt['Genève', lang], 
+                      txt['Basel', lang], txt['Bern', lang], txt['Lausanne', lang])
+
+map2 &lt;- ggplot(co.df) + 
+  bk_mapTheme() + 
+  coord_quickmap(expand = F) + 
+  geom_polygon(
+    aes(x = long, y = lat, group = group), 
+    size = 0.2, alpha = 0, color = border.color
+  ) + 
+  geom_polygon(data = mu.df , 
+    aes(x = lng, y = lat, group = group, fill = log10(densityPop)), 
+    size = 0) + 
+  geom_polygon(
+    data = lakes.df,  aes(x = long, y = lat, group = group),
+    size = 0, fill = border.color, colour = border.color
+  ) +  
+  scale_fill_viridis(
+    name = paste0(txt['popdensity', lang], &quot;  &quot;),
+     labels = as.character(c(10^0, 10^1, 10^2, 10^3, 10^4)),
+    discrete = F, option=&quot;A&quot;, direction = 1
+  ) + 
+  geom_point(
+    data = largeAgglo,
+    aes(x = lon, y = lat, group = 1, size = size),         
+    alpha = 0.85, colour = colourText_bkbg, shape = 1
+  ) + 
+  scale_size(range = c(3,7), name = txt['agglosize', lang]) +
+  geom_text(
+    data = largeAgglo,
+    aes(x = lon, y = lat, group = 1, label = label),
+    family = &quot;OpenSans-CondensedLight&quot;,
+    colour = colourText_bkbg,
+    nudge_y = -0.082,
+    size = 3.5
+  ) +
+  labs(title = txt['title2', lang], subtitle = txt['descr2', lang])
+
+map1.path &lt;- paste0(&quot;01_map_flickr_&quot; , lang, &quot;_01.png&quot;)
+map2.path &lt;- paste0(&quot;01_map_flickr_&quot; , lang, &quot;_02.png&quot;)      
+html.outfile &lt;- paste0(&quot;01_map_flickr_&quot;, lang, &quot;.html&quot;)
+
+source &lt;- paste0( txt['source', lang], &quot;: &quot;,  txt['source.name', lang])
+
+png(map1.path,  res = 300, pointsize = 1, height = 900 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
+map1
+dev.off()     </code></pre>
+<pre><code>## quartz_off_screen 
+##                 2</code></pre>
+<pre class="r"><code>png(map2.path,  res = 300, pointsize = 1, height = 1070 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
+map2
+dev.off()     </code></pre>
+<pre><code>## quartz_off_screen 
+##                 2</code></pre>
+<pre class="r"><code>save_html(
+  tags$html(
+    tags$head(includeHTML(&quot;styles.html&quot;)),
+    tags$body(
+      div(class=&quot;graphic&quot;,
+          img(src = basename(map1.path), width= &quot;100%&quot;),
+          img(src = basename(map2.path), width= &quot;100%&quot;)      
+      ),
+     div(id = &quot;cite&quot;, HTML(source)),
+      HTML(iframeresizer)
+    )), file = html.outfile, background = '#1a0000'
+)</code></pre>
 
 
 

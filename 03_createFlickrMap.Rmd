@@ -18,6 +18,7 @@ require(maptools)
 require(classInt)
 require(viridis)
 library(swiRcharts)
+library(extrafont)
 #library(leaflet)
 
 pics.file <- "input/all_flickr_pics.csv"
@@ -30,7 +31,7 @@ trad.file <- "input/flickr map - Sheet1.csv"
 
 
 colourText_bkbg <- '#ffffff'
-
+border.color <- "#404040"
 ```
 
 
@@ -82,7 +83,7 @@ mu.lab <- cbind(centroids.df, id = idList)
 mu.lab$label <- as.character(mu.df[match(idList, mu.df$BFS_NUMMER), 'NAME'])
 ```
 
-```{r plot maps, include=FALSE}
+```{r plot maps}
 # helper mapping 
 bk_mapTheme <- function(
   base_size = 11, base_family = "OpenSans-CondensedLight",
@@ -103,8 +104,8 @@ bk_mapTheme <- function(
       plot.title = element_text(colour = colour), 
       plot.subtitle = element_text(colour = "white"),
       plot.caption = element_text(colour = colour),
-      legend.text = element_text(colour = "#f2f2f2", size = 9, vjust = 1),
-      legend.title = element_text(colour = "#f2f2f2", size = 10),
+      legend.text = element_text(colour = colourText_bkbg, size = 9, vjust = 2),
+      legend.title = element_text(colour = colourText_bkbg, size = 10),
       legend.key.width = unit(17, "lines"),
       legend.key.height = unit(8, "lines"),
       legend.position = "top",
@@ -121,13 +122,13 @@ map1 <- ggplot(co.df) +
   coord_quickmap(expand = F) + 
   geom_polygon(
     aes(x = long, y = lat, group = group), 
-    size = 0.25, alpha = 0, color = "#404040") + 
+    size = 0.25, alpha = 0, color = border.color) + 
   geom_polygon(
     data = lakes.df,  aes(x = long, y = lat, group = group),
-    size = 0, fill = "#404040", colour = "#404040") +
+    size = 0, fill = border.color, colour = border.color) +
   geom_jitter(
     data = data, aes(x = lon, y = lat, group = 1), 
-    colour = "#cceeff", alpha = 0.2, size = 1/10^20) + 
+    colour = "#e6ffff", alpha = 0.2, size = 1/10^20) + 
   labs(title = txt['main.title', lang], subtitle = txt['descr', lang])
   
 mu.df$densityPop <- densityPop[match(mu.df$BFS_NUMMER, densityPop$OFSKey), 'PopByKm2']
@@ -142,14 +143,14 @@ map2 <- ggplot(co.df) +
   coord_quickmap(expand = F) + 
   geom_polygon(
     aes(x = long, y = lat, group = group), 
-    size = 0.2, alpha = 0, color = "#404040"
+    size = 0.2, alpha = 0, color = border.color
   ) + 
   geom_polygon(data = mu.df , 
     aes(x = lng, y = lat, group = group, fill = log10(densityPop)), 
     size = 0) + 
   geom_polygon(
     data = lakes.df,  aes(x = long, y = lat, group = group),
-    size = 0, fill = "#404040", colour = "#404040"
+    size = 0, fill = border.color, colour = border.color
   ) +  
   scale_fill_viridis(
     name = paste0(txt['popdensity', lang], "  "),
@@ -165,7 +166,7 @@ map2 <- ggplot(co.df) +
   geom_text(
     data = largeAgglo,
     aes(x = lon, y = lat, group = 1, label = label),
-    family = "OpenSans-Condensed",
+    family = "OpenSans-CondensedLight",
     colour = colourText_bkbg,
     nudge_y = -0.082,
     size = 3.5
