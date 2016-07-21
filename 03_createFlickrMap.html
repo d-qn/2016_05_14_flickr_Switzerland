@@ -125,7 +125,7 @@ $(document).ready(function () {
 
 <pre class="r"><code># helper mapping 
 bk_mapTheme &lt;- function(
-  base_size = 11, base_family = &quot;OpenSans-CondensedLight&quot;,
+  base_size = 14, base_family = &quot;OpenSans-CondensedLight&quot;,
   title_family = &quot;OpenSans-CondensedBold&quot;, subtitle_family = &quot;OpenSans-CondensedLight&quot;,
   bg.colour = '#1a0000', colour = colourText_bkbg
  ) {
@@ -141,10 +141,10 @@ bk_mapTheme &lt;- function(
       axis.title = element_blank(), 
       axis.text = element_blank(),
       plot.title = element_text(colour = colour), 
-      plot.subtitle = element_text(colour = &quot;white&quot;),
+      plot.subtitle = element_text(colour = &quot;white&quot;, margin=margin(b=13)),
       plot.caption = element_text(colour = colour),
-      legend.text = element_text(colour = colourText_bkbg, size = 9, vjust = 2),
-      legend.title = element_text(colour = colourText_bkbg, size = 10),
+      legend.text = element_text(colour = colourText_bkbg, size = 9.5, hjust = 1),
+      legend.title = element_text(colour = colourText_bkbg, size = 11),
       legend.key.width = unit(17, &quot;lines&quot;),
       legend.key.height = unit(8, &quot;lines&quot;),
       legend.position = &quot;top&quot;,
@@ -157,7 +157,7 @@ bk_mapTheme &lt;- function(
 lang &lt;- 'EN'
 
 map1 &lt;- ggplot(co.df) + 
-  bk_mapTheme() + 
+  bk_mapTheme() +
   coord_quickmap(expand = F) + 
   geom_polygon(
     aes(x = long, y = lat, group = group), 
@@ -167,8 +167,7 @@ map1 &lt;- ggplot(co.df) +
     size = 0, fill = border.color, colour = border.color) +
   geom_jitter(
     data = data, aes(x = lon, y = lat, group = 1), 
-    colour = &quot;#e6ffff&quot;, alpha = 0.2, size = 1/10^20) + 
-  labs(title = txt['main.title', lang], subtitle = txt['descr', lang])
+    colour = &quot;#e6ffff&quot;, alpha = 0.2, size = 1/10^20)
   
 mu.df$densityPop &lt;- densityPop[match(mu.df$BFS_NUMMER, densityPop$OFSKey), 'PopByKm2']
 # hack to put the 0.05 quantile densityPop for NA densityPop muni
@@ -208,9 +207,8 @@ map2 &lt;- ggplot(co.df) +
     family = &quot;OpenSans-CondensedLight&quot;,
     colour = colourText_bkbg,
     nudge_y = -0.082,
-    size = 3.5
-  ) +
-  labs(title = txt['title2', lang], subtitle = txt['descr2', lang])
+    size = 4
+  ) 
 
 map1.path &lt;- paste0(&quot;01_map_flickr_&quot; , lang, &quot;_01.png&quot;)
 map2.path &lt;- paste0(&quot;01_map_flickr_&quot; , lang, &quot;_02.png&quot;)      
@@ -232,14 +230,21 @@ dev.off()     </code></pre>
   tags$html(
     tags$head(includeHTML(&quot;styles.html&quot;)),
     tags$body(
-      div(class=&quot;graphic&quot;,
-          img(src = basename(map1.path), width= &quot;100%&quot;),
-          img(src = basename(map2.path), width= &quot;100%&quot;)      
-      ),
-     div(id = &quot;cite&quot;, HTML(source)),
-      HTML(iframeresizer)
+    h2(txt['main.title', lang]),
+    div(class = &quot;descr&quot;,  HTML(txt['descr', lang])),
+    div(class = &quot;graphic&quot;, img(src = basename(map1.path), width= &quot;100%&quot;)),
+    h2(txt['title2', lang]),
+    div(class = &quot;descr&quot;,  HTML(txt['descr2', lang])),
+    div(class = &quot;graphic&quot;, img(src = basename(map2.path), width= &quot;100%&quot;)),
+    div(id = &quot;cite&quot;, HTML(source)),
+    HTML(iframeresizer)
     )), file = html.outfile, background = '#1a0000'
-)</code></pre>
+)
+
+# move output to folder
+out.paths &lt;- c(map1.path, map2.path, html.outfile)
+file.rename(from = out.paths, to = paste0(&quot;output/&quot;, out.paths))</code></pre>
+<pre><code>## [1] TRUE TRUE TRUE</code></pre>
 
 
 
