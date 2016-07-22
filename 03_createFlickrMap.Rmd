@@ -18,7 +18,7 @@ require(maptools)
 require(classInt)
 require(viridis)
 library(swiRcharts)
-#library(leaflet)
+library(ggrepel)
 
 pics.file <- "input/all_flickr_pics.csv"
 com.file <-  "input/flickr_byMunicipalities.csv"
@@ -27,7 +27,6 @@ densityPop.file <- "input/swissPopDensity.csv"
 largestAgglo.file <- "input/5_largestCities_CH.csv"
 
 trad.file <- "input/flickr map - Sheet1.csv"
-
 
 colourText_bkbg <- '#ffffff'
 border.color <- "#404040"
@@ -167,7 +166,7 @@ map2 <- ggplot(co.df) +
     family = "OpenSans-CondensedLight",
     colour = colourText_bkbg,
     nudge_y = -0.082,
-    size = 4
+    size = 4.2
   ) 
 
 map1.path <- paste0("01_map_flickr_" , lang, "_01.png")
@@ -211,10 +210,11 @@ file.rename(from = out.paths, to = paste0("output/", out.paths))
 
 # helper to map
 mapTopMuni <- function(dd) {
-  ggplot(co.df) + 
+  ggplot(data = dd) + 
     bk_mapTheme() + 
     coord_quickmap(expand = F) + 
     geom_polygon(
+      data = co.df,
       aes(x = long, y = lat, group = group), 
       size = 0.4, alpha = 0, color = "#d9d9d9") +
     geom_polygon(
@@ -225,19 +225,20 @@ mapTopMuni <- function(dd) {
       data = lakes.df,  aes(x = long, y = lat, group = group),
       size = 0, fill = "#595959", colour = "#595959") + 
     geom_point(
-      data = dd, aes(x = lon, y = lat, group = 1, size = var), 
-      colour = "#ab3d3f", alpha = 1) + 
-    geom_label(
-      data = dd, aes(x = lon, y = lat, group = 1, label = lab),
-      fill = "#f1dada",
+      aes(x = lon, y = lat, group = 1, size = var), 
+      colour = "#ab3d3f", shape = 18, alpha = 1) + 
+    geom_label_repel(
+      aes(x = lon, y = lat, group = 1, label = lab),
+      fill = "#f8eded",
+      segment.color = "#f8eded",
+      point.padding = unit(5, "lines"),
+      segment.size = 0.2,
       family = "OpenSans-CondensedLight",
       label.size = 0,
-      label.padding = unit(1.5, "lines"),
+      label.padding = unit(2.2, "lines"),
       label.r = unit(1, "lines"),
-     # colour = colourText_bkbg,
-      size = 3,
-      nudge_x = 0.27,
-      nudge_y = 0.03
+      force = 2,
+      size = 3.5
     ) + theme(legend.position = "none")
 }
 
