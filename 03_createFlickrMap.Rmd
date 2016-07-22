@@ -205,45 +205,110 @@ file.rename(from = out.paths, to = paste0("output/", out.paths))
 ```
 
 ```{r plot map for the top municipalities, include=FALSE}
-v <- 'Total number of pictures by municipality'
 
+# bg.background <- "#f7f5ed"
+# border.col.bg <- '#aa8959'
 
-topN <- com[order(com[,v], decreasing = T),1:4] %>% head(10) 
-dd <- left_join(topN, rename(mu.lab, BFS_NUMMER = id))
-dd <- dd[!duplicated(dd$BFS_NUMMER),]
-colnames(dd)[which(colnames(dd)==v)] <- 'var'
-
-mapTopMuni <- function(dd, title, footer) {
-  
-  mapt <- ggplot(co.df) + 
+# helper to map
+mapTopMuni <- function(dd) {
+  ggplot(co.df) + 
     bk_mapTheme() + 
     coord_quickmap(expand = F) + 
     geom_polygon(
       aes(x = long, y = lat, group = group), 
-      size = 0.5, alpha = 0, color = "#d9d9d9") +
+      size = 0.4, alpha = 0, color = "#d9d9d9") +
     geom_polygon(
       data = ca.df, 
       aes(x = long, y = lat, group = group), 
-      size = 0.1, alpha = 0, color = "#595959") +  
+      size = 0.15, alpha = 0, color = "#595959") +  
     geom_polygon(
       data = lakes.df,  aes(x = long, y = lat, group = group),
       size = 0, fill = "#595959", colour = "#595959") + 
     geom_point(
       data = dd, aes(x = lon, y = lat, group = 1, size = var), 
-      colour = "#f5f0f0", alpha = 0.8) + 
+      colour = "#ab3d3f", alpha = 1) + 
     geom_label(
-      data = dd, aes(x = lon, y = lat, group = 1, label = label),
-      fill = "#666666",
+      data = dd, aes(x = lon, y = lat, group = 1, label = lab),
+      fill = "#f1dada",
       family = "OpenSans-CondensedLight",
-      colour = colourText_bkbg,
+      label.size = 0,
+      label.padding = unit(1.5, "lines"),
+      label.r = unit(1, "lines"),
+     # colour = colourText_bkbg,
       size = 3,
-      nudge_y = -0.082
-    ) + theme(legend.position = "none") + 
-    labs(title = title, footer = footer)
+      nudge_x = 0.27,
+      nudge_y = 0.03
+    ) + theme(legend.position = "none")
+}
+
+htmlizeGraphic <- function (gg, baseName = "", title = "", source = "") {
+  # create the png  
+  map.path <- paste0(baseName, ".png")
+  html.path <- paste0(baseName, ".html")
+  png(map.path,  res = 300, pointsize = 1, height = 800 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
+  print(gg)
+  dev.off()
   
+  save_html(
+  tags$html(
+    tags$head(includeHTML("styles.html")),
+    tags$body(
+    h2(HTML(title)),
+    div(class = "graphic", img(src = basename(map.path), width= "100%")),
+    div(id = "cite", HTML(source)),
+    HTML(iframeresizer)
+    )), file = html.path, background = '#1a0000'
+  )
+  # move output to folder
+  out.paths <- c(map.path, html.path)
+  file.rename(from = out.paths, to = paste0("output/", out.paths))
 }
 
 
+
+### 1st map
+
+v <- 'Total number of pictures by municipality'
+topN <- com[order(com[,v], decreasing = T),1:4] %>% head(10) 
+dd <- left_join(topN, rename(mu.lab, BFS_NUMMER = id))
+dd <- dd[!duplicated(dd$BFS_NUMMER),]
+colnames(dd)[which(colnames(dd)==v)] <- 'var'
+
+
+lang <- 'EN'
+
+idx <- match(dd$label, rownames(txt))
+if(any(is.na(idx))) {
+  stop("\n", "Some municipality names are not present in the tranlsation!")
+}
+dd$lab <- paste0(1:nrow(dd), ". ", txt[idx, lang])
+
+htmlizeGraphic(
+  mapTopMuni(dd), 
+  baseName = paste0("02_map_top10_totPics_" , lang), 
+  title = txt['title3', lang], 
+  source =  txt['footer3', lang]
+)
+
+### 2nd map
+
+v <- "Average number of picture' views by municipality"
+topN <- com[order(com[,v], decreasing = T),1:4] %>% head(5) 
+dd <- left_join(topN, rename(mu.lab, BFS_NUMMER = id))
+dd <- dd[!duplicated(dd$BFS_NUMMER),]
+colnames(dd)[which(colnames(dd)==v)] <- 'var'
+idx <- match(dd$label, rownames(txt))
+if(any(is.na(idx))) {
+  stop("\n", "Some municipality names are not present in the tranlsation!")
+}
+dd$lab <- paste0(1:nrow(dd), ". ", txt[idx, lang])
+
+htmlizeGraphic(
+  mapTopMuni(dd), 
+  baseName = paste0("03_map_top5_averageView_" , lang), 
+  title = txt['title4', lang], 
+  source =  txt['footer3', lang]
+)
 
 
 ```
