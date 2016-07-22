@@ -235,10 +235,10 @@ mapTopMuni <- function(dd) {
       segment.size = 0.2,
       family = "OpenSans-CondensedLight",
       label.size = 0,
-      label.padding = unit(2.2, "lines"),
-      label.r = unit(1, "lines"),
+      label.padding = unit(2.5, "lines"),
+      label.r = unit(1.4, "lines"),
       force = 2,
-      size = 3.5
+      size = 3.6
     ) + theme(legend.position = "none")
 }
 
