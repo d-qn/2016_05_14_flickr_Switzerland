@@ -115,6 +115,7 @@ bk_mapTheme <- function(
 
 lang <- 'EN'
 
+
 map1 <- ggplot(co.df) + 
   bk_mapTheme() +
   coord_quickmap(expand = F) + 
@@ -200,7 +201,6 @@ save_html(
 # move output to folder
 out.paths <- c(map1.path, map2.path, html.outfile)
 file.rename(from = out.paths, to = paste0("output/", out.paths))
-  
 ```
 
 ```{r plot map for the top municipalities, include=FALSE}
@@ -311,5 +311,18 @@ htmlizeGraphic(
   source =  txt['footer3', lang]
 )
 
+
+```
+
+```{r teaserify, echo = F}
+  
+# save the map teaser image (same as the first map, except no HTML text)!
+teaser.map <- map1 + 
+  labs(title = txt['main.title', lang], subtitle = txt['descr', lang], caption = source) +
+  theme(plot.subtitle = element_text(size = 7), plot.caption = element_text(size = 5))
+png(paste0("teaser/01_teaser_flickr_" , lang, ".png"), 
+    res = 300, pointsize = 1, height = 900 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
+teaser.map
+dev.off()
 
 ```

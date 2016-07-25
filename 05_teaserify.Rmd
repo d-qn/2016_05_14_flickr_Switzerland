@@ -1,0 +1,21 @@
+---
+title: "05_teaserify"
+author: "Duc-Quang Nguyen"
+date: "24 July 2016"
+output: html_document
+---
+
+```{r yo, include=FALSE}
+library(magick)
+
+pic.path <- "teaser/"
+pic.files <- list.files(pic.path, full.names = T)
+
+pics <- image_read(pic.files) 
+pics <- image_scale(pics, "1024x512")
+
+#animation <- image_animate(image_morph(pics, frames = 3), fps = 1)
+animation1 <- image_animate(pics, fps = 0.4)
+image_write(animation1, "teaser_flickrstory.gif")
+
+```
