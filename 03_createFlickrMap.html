@@ -154,108 +154,107 @@ bk_mapTheme &lt;- function(
 }
 
 
-lang &lt;- 'EN'
+#lang &lt;- 'EN'
 
+for (lang in colnames(txt)) {
 
-map1 &lt;- ggplot(co.df) + 
-  bk_mapTheme() +
-  coord_quickmap(expand = F) + 
-  geom_polygon(
-    aes(x = long, y = lat, group = group), 
-    size = 0.25, alpha = 0, color = border.color) + 
-  geom_polygon(
-    data = lakes.df,  aes(x = long, y = lat, group = group),
-    size = 0, fill = border.color, colour = border.color) +
-  geom_jitter(
-    data = data, aes(x = lon, y = lat, group = 1), 
-    colour = &quot;#e6ffff&quot;, alpha = 0.2, size = 1/10^20)
+  map1 &lt;- ggplot(co.df) + 
+    bk_mapTheme(
+      base_family = txt['base.font', lang], 
+      title_family = txt['title.font', lang], 
+      subtitle_family = txt['base.font', lang]
+    ) +
+    coord_quickmap(expand = F) + 
+    geom_polygon(
+      aes(x = long, y = lat, group = group), 
+      size = 0.25, alpha = 0, color = border.color) + 
+    geom_polygon(
+      data = lakes.df,  aes(x = long, y = lat, group = group),
+      size = 0, fill = border.color, colour = border.color) +
+    geom_jitter(
+      data = data, aes(x = lon, y = lat, group = 1), 
+      colour = &quot;#e6ffff&quot;, alpha = 0.2, size = 1/10^20)
   
-mu.df$densityPop &lt;- densityPop[match(mu.df$BFS_NUMMER, densityPop$OFSKey), 'PopByKm2']
-# hack to put the 0.05 quantile densityPop for NA densityPop muni
-mu.df[which(is.na(mu.df$densityPop) &amp; !is.na(mu.df$EINWOHNERZ)), 'densityPop'] &lt;- quantile(densityPop[,1], 0.05)
-
-largeAgglo$label &lt;- c(txt['Zürich', lang], txt['Genève', lang], 
-                      txt['Basel', lang], txt['Bern', lang], txt['Lausanne', lang])
-
-map2 &lt;- ggplot(co.df) + 
-  bk_mapTheme() + 
-  coord_quickmap(expand = F) + 
-  geom_polygon(
-    aes(x = long, y = lat, group = group), 
-    size = 0.2, alpha = 0, color = border.color
-  ) + 
-  geom_polygon(data = mu.df , 
-    aes(x = lng, y = lat, group = group, fill = log10(densityPop)), 
-    size = 0) + 
-  geom_polygon(
-    data = lakes.df,  aes(x = long, y = lat, group = group),
-    size = 0, fill = border.color, colour = border.color
-  ) +  
-  scale_fill_viridis(
-    name = paste0(txt['popdensity', lang], &quot;  &quot;),
-     labels = as.character(c(10^0, 10^1, 10^2, 10^3, 10^4)),
-    discrete = F, option=&quot;A&quot;, direction = 1
-  ) + 
-  geom_point(
-    data = largeAgglo,
-    aes(x = lon, y = lat, group = 1, size = size),         
-    alpha = 0.85, colour = colourText_bkbg, shape = 1
-  ) + 
-  scale_size(range = c(3,7), name = txt['agglosize', lang]) +
-  geom_text(
-    data = largeAgglo,
-    aes(x = lon, y = lat, group = 1, label = label),
-    family = &quot;OpenSans-CondensedLight&quot;,
-    colour = colourText_bkbg,
-    nudge_y = -0.082,
-    size = 4.2
-  ) 
-
-map1.path &lt;- paste0(&quot;01_map_flickr_&quot; , lang, &quot;_01.png&quot;)
-map2.path &lt;- paste0(&quot;01_map_flickr_&quot; , lang, &quot;_02.png&quot;)      
-html.outfile &lt;- paste0(&quot;01_map_flickr_&quot;, lang, &quot;.html&quot;)
-
-source &lt;- paste0( txt['source', lang], &quot;: &quot;,  txt['source.name', lang])
-
-png(map1.path,  res = 300, pointsize = 1, height = 900 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
-map1
-dev.off()     </code></pre>
-<pre><code>## quartz_off_screen 
-##                 2</code></pre>
-<pre class="r"><code>png(map2.path,  res = 300, pointsize = 1, height = 1070 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
-map2
-dev.off()     </code></pre>
-<pre><code>## quartz_off_screen 
-##                 2</code></pre>
-<pre class="r"><code>save_html(
-  tags$html(
-    tags$head(includeHTML(&quot;styles.html&quot;)),
-    tags$body(
-    h2(txt['main.title', lang]),
-    div(class = &quot;descr&quot;,  HTML(txt['descr', lang])),
-    div(class = &quot;graphic&quot;, img(src = basename(map1.path), width= &quot;100%&quot;)),
-    h2(txt['title2', lang]),
-    div(class = &quot;descr&quot;,  HTML(txt['descr2', lang])),
-    div(class = &quot;graphic&quot;, img(src = basename(map2.path), width= &quot;100%&quot;)),
-    div(id = &quot;cite&quot;, HTML(source)),
-    HTML(iframeresizer)
-    )), file = html.outfile, background = '#1a0000'
-)
-
-# move output to folder
-out.paths &lt;- c(map1.path, map2.path, html.outfile)
-file.rename(from = out.paths, to = paste0(&quot;output/&quot;, out.paths))</code></pre>
-<pre><code>## [1] TRUE TRUE TRUE</code></pre>
-<pre class="r"><code># save the map teaser image (same as the first map, except no HTML text)!
-teaser.map &lt;- map1 + 
-  labs(title = txt['main.title', lang], subtitle = txt['descr', lang], caption = source) +
-  theme(plot.subtitle = element_text(size = 7), plot.caption = element_text(size = 5))
-png(paste0(&quot;teaser/01_teaser_flickr_&quot; , lang, &quot;.png&quot;), 
-    res = 300, pointsize = 1, height = 900 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
-teaser.map
-dev.off()</code></pre>
-<pre><code>## quartz_off_screen 
-##                 2</code></pre>
+  mu.df$densityPop &lt;- densityPop[match(mu.df$BFS_NUMMER, densityPop$OFSKey), 'PopByKm2']
+  # hack to put the 0.05 quantile densityPop for NA densityPop muni
+  mu.df[which(is.na(mu.df$densityPop) &amp; !is.na(mu.df$EINWOHNERZ)), 'densityPop'] &lt;- quantile(densityPop[,1], 0.05)
+  
+  largeAgglo$label &lt;- c(txt['Zürich', lang], txt['Genève', lang], 
+                        txt['Basel', lang], txt['Bern', lang], txt['Lausanne', lang])
+  
+  map2 &lt;- ggplot(co.df) + 
+    bk_mapTheme(
+      base_family = txt['base.font', lang], 
+      title_family = txt['title.font', lang], 
+      subtitle_family = txt['base.font', lang]
+    ) +
+    coord_quickmap(expand = F) + 
+    geom_polygon(
+      aes(x = long, y = lat, group = group), 
+      size = 0.2, alpha = 0, color = border.color
+    ) + 
+    geom_polygon(
+      data = mu.df , 
+      aes(x = lng, y = lat, group = group, fill = log10(densityPop)), 
+      size = 0) + 
+    geom_polygon(
+      data = lakes.df,  aes(x = long, y = lat, group = group),
+      size = 0, fill = border.color, colour = border.color
+    ) +  
+    scale_fill_viridis(
+      name = paste0(txt['popdensity', lang], &quot;  &quot;),
+      labels = as.character(c(10^0, 10^1, 10^2, 10^3, 10^4)),
+      discrete = F, option=&quot;A&quot;, direction = 1
+    ) + 
+    geom_point(
+      data = largeAgglo,
+      aes(x = lon, y = lat, group = 1, size = size),         
+      alpha = 0.85, colour = colourText_bkbg, shape = 1
+    ) + 
+    scale_size(range = c(3,7), name = txt['agglosize', lang]) +
+    geom_text(
+      data = largeAgglo,
+      aes(x = lon, y = lat, group = 1, label = label),
+      family = txt['base.font', lang],
+      colour = colourText_bkbg,
+      nudge_y = -0.082,
+      size = 4.2
+    ) 
+  
+  map1.path &lt;- paste0(&quot;01_map_flickr_&quot; , lang, &quot;_01.png&quot;)
+  map2.path &lt;- paste0(&quot;01_map_flickr_&quot; , lang, &quot;_02.png&quot;)      
+  html.outfile &lt;- paste0(&quot;01_map_flickr_&quot;, lang, &quot;.html&quot;)
+  
+  source &lt;- paste0( txt['source', lang], &quot;: &quot;,  txt['source.name', lang])
+  
+  png(map1.path,  res = 300, pointsize = 1, height = 900 * 1.5, 
+      width = 1100 * 1.5, bg = '#1a0000')
+  print(map1)
+  dev.off()     
+  png(map2.path,  res = 300, pointsize = 1, height = 1070 * 1.5, 
+      width = 1100 * 1.5, bg = '#1a0000')
+  print(map2)
+  dev.off()     
+  
+  save_html(
+    tags$html(
+      tags$head(includeHTML(&quot;styles.html&quot;)),
+      tags$body(
+        h2(txt['main.title', lang]),
+        div(class = &quot;descr&quot;,  HTML(txt['descr', lang])),
+        div(class = &quot;graphic&quot;, img(src = basename(map1.path), width= &quot;100%&quot;)),
+        h2(txt['title2', lang]),
+        div(class = &quot;descr&quot;,  HTML(txt['descr2', lang])),
+        div(class = &quot;graphic&quot;, img(src = basename(map2.path), width= &quot;100%&quot;)),
+        div(id = &quot;cite&quot;, HTML(source)),
+        HTML(iframeresizer)
+      )), file = html.outfile, background = '#1a0000'
+  )
+  
+  # move output to folder
+  out.paths &lt;- c(map1.path, map2.path, html.outfile)
+  file.rename(from = out.paths, to = paste0(&quot;output/&quot;, out.paths))
+}</code></pre>
 
 
 

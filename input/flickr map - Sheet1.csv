@@ -1,27 +1,31 @@
 code,EN,FR,DE,IT,PT,AR,RU,ES,JA,ZH
-main.title,Flickr pictures in Switzerland,,,,,,,,,
-descr,"Location of all 22,433 pictures geolocalised in Switzerland and uploaded to Flickr between January 1, 2014 and and July 14, 2016",,,,,,,,,
+main.title,Flickr pictures in Switzerland,Photos de la Suisse sur Flickr,,Immagini della Svizzera su Flickr,,,Швейцарские фотографии на сайте Flickr,,Flickrの写真で見るスイス,Flickr上的瑞士图片
+descr,"Location of all 22,433 pictures geolocalised in Switzerland and uploaded to Flickr between January 1, 2014 and and July 14, 2016",Géolocalisation des 22'433 photograhies prises en Suisse et chargées sur Flickr entre le 1er janvier 2014 et le 14 juillet 2016,,"Geolocalizzazione delle 22'433 fotografie scattate Svizzera e caricate su Flickr, dal 1° gennaio 2014 al 14 luglio 2016",,,"Геолокация всех 22 433 фотографий, сделанных в Швейцарии и загруженных на Flickr в период с 1 января 2014 г. по 14 июля 2016 г.",,２０１４年１月１日～２０１６年１月１４日にFlickrに投稿されたスイスの写真２万２４３３枚が撮影された場所,2014年1月1日至2016年7月14日间，在瑞士拍摄、并上载于Flickr的22433张照片的地理位置分布
 source,Source,source,Quelle,Fonte,fonte,المصدر,Источник,Fuente,出典,来源
-title2,Population density by Swiss municipalities,,,,,,,,,
-descr2,Swiss municipalities coloured according to their population density. The five largest agglomerations and their total population are shown,,,,,,,,,
-popdensity,Inhabitants per square km,,,,,,,,,
-agglosize,Inhabitants (in thousands),,,,,,,,,
-source.name,"Flickr, Federal Statistical Office and swisstopo | swissinfo.ch | @duc_qn",,,,,,,,,
-title3,Top ten municipalities by number of pictures (i.e. the classic places to snap a pic),,,,,,,,,
-footer3,swissinfo.ch,,,,,,,,,
-Zürich,Zurich,,,,,,,,,
-Bern,Bern,,,,,,,,,
-Basel,Basel,,,,,,,,,
-Genève,Geneva,,,,,,,,,
-Lausanne,Lausanne,,,,,,,,,
-Lac Léman (VD),Lake Geneva,,,,,,,,,
-Zermatt,Zermatt,,,,,,,,,
-Luzern,Lucerne,,,,,,,,,
-Lauterbrunnen,Lauterbrunnen,,,,,,,,,
-Martigny,Martigny,,,,,,,,,
-title4,Top five municipalities by average picture views (i.e. places that are off the beaten track but which have a wow factor),,,,,,,,,
-Eschenbach (SG),Eschenbach,,,,,,,,,
-Selzach,Selzach,,,,,,,,,
-Hägendorf,Hägendorf,,,,,,,,,
-Chevilly,Chevilly,,,,,,,,,
-Ernen,Ernen,,,,,,,,,
+title2,Population density by Swiss municipalities,Densité de la population par commune suisse,,Densità della popolazione per comune svizzero,,,Плотность населения в Швейцарии (по общинам/муниципалитетам),,自治体別に見た人口密度分布図,瑞士乡镇的人口密度
+descr2,Swiss municipalities coloured according to their population density. The five largest agglomerations and their total population are shown,Les communes suisses sont colorées d'après la densité de leur population. La carte montre les cinq plus grandes agglomérations et leur population totale,,"I comuni svizzeri sono colorati in base alla
+densità della loro popolazione. La mappa mostra inoltre i cinque principali
+agglomerati e la loro popolazione totale. ",,,Швейцарские общины выделены цветом в соответствии с плотностью их населения. Показаны пять самых плотно заселенных агломераций,,自治体ごとの人口密度によって色分けされたスイスの地図。丸で表示されているのは人口密度の高い都市トップ５,瑞士的各乡镇按人口密度着色。地图上显示了瑞士5大城郊居民聚集地区及其总人口数
+popdensity,Inhabitants per square km,Habitants par km2,,Abitanti per km2,,Inhabitants per square km,Численность населения на кв. км.,,１平方キロメートルごとの人口,每平方公里的居民数
+agglosize,Inhabitants (in thousands),Habitants (en milliers),,Abitanti (in migliaia),,Inhabitants (in thousands),Плотность населения (в тыс. чел.),,人口（単位：千人）,居民数(以千计)
+source.name,"Flickr, Federal Statistical Office and swisstopo | swissinfo.ch | @duc_qn","Flickr, Office fédéral de la statistique et swisstopo  | swissinfo.ch | @duc_qn",,"Flickr, Ufficio federale di statistica e swisstopo | swissinfo.ch | @duc_qn",,,"Flickr, Федеральное ведомство статистики (BfS) и swisstopo | swissinfo.ch | @duc_qn",,Flickr、連邦統計局、swisstopo  | swissinfo.ch | @duc_qn,Flickr、瑞士联邦统计局及swisstopo | 瑞士资讯swissinfo.ch | @duc_qn
+title3,Top ten municipalities by number of pictures (i.e. the classic places to snap a pic),Les dix régions les plus photographiées du pays,,I dieci luoghi più fotografati della Svizzera,,,"Десятка швейцарских регионов с самым большим числом фотографий, сделанных на их территории",,スイスで最も多く写真に撮られた地域トップ１０,瑞士上镜率最高的10个地点
+footer3,swissinfo.ch,swissinfo.ch,,swissinfo.ch,,,swissinfo.ch,,swissinfo.ch,瑞士资讯swissinfo.ch
+Zürich,Zurich,Zurich,,Zurigo,,Zurich,Цюрих,,チューリヒ,苏黎世
+Bern,Bern,Berne,,Berna,,Bern,Берн,,ベルン,伯尔尼
+Basel,Basel,Bâle,,Basilea,,Basel,Базель,,バーゼル,巴塞尔
+Genève,Geneva,Genève,,Ginevra,,Geneva,Женева,,ジュネーブ,日内瓦
+Lausanne,Lausanne,Lausanne,,Losanna,,Lausanne,Лозанна,,ローザンヌ,洛桑
+Lac Léman (VD),Lake Geneva,Lac Léman,,Lago Lemano,,Lake Geneva,Женевское озеро,,レマン湖,日内瓦湖
+Zermatt,Zermatt,Zermatt,,Zermatt,,Zermatt,Церматт,,ツェルマット,采尔马特
+Luzern,Lucerne,Lucerne,,Lucerna,,Lucerne,Люцерн,,ルツェルン,卢塞恩
+Lauterbrunnen,Lauterbrunnen,Lauterbrunnen,,Lauterbrunnen,,Lauterbrunnen,Лаутербруннен,,ラウターブルンネン,劳特布龙嫩
+Martigny,Martigny,Martigny,,Martigny,,Martigny,Мартини,,マルティニ,马蒂尼
+title4,Top five municipalities by average picture views (i.e. places that are off the beaten track but which have a wow factor),Les cinq villages pour lesquels chaque photographie a été en moyenne la plus vue,,"I cinque comuni svizzeri di maggior successo, in base alla media dei click per ogni fotografia",,,"Пятерка регионов с самым большим числом просмотров фотографий, сделанных на их территории (не обязательно входят в стандарнтные туры, но с наибольшим вау-фактором)",,写真のページビュー数が多かった自治体トップ５,图片平均浏览率最高的5个村庄
+Eschenbach (SG),Eschenbach,Eschenbach,,Eschenbach,,Eschenbach,Эшенбах,,エッシェンバッハ,Eschenbach
+Selzach,Selzach,Selzach,,Selzach,,Selzach,Зельцах,,セルツァッハ,Selzach
+Hägendorf,Hägendorf,Hägendorf,,Hägendorf,,Hägendorf,Хегендорф,,ヘーゲンドルフ,Hägendorf
+Chevilly,Chevilly,Chevilly,,Chevilly,,Chevilly,Шевилли,,シュヴィイ,Chevilly
+Ernen,Ernen,Ernen,,Ernen,,Ernen,Эрнен,,エルネン,Ernen
+base.font,OpenSans-CondensedLight,OpenSans-CondensedLight,OpenSans-CondensedLight,OpenSans-CondensedLight,OpenSans-CondensedLight,OpenSans-CondensedLight,OpenSans-CondensedLight,OpenSans-CondensedLight,PingFang SC Semibold,PingFang SC Semibold
+title.font,OpenSans-CondensedBold,OpenSans-CondensedBold,OpenSans-CondensedBold,OpenSans-CondensedBold,OpenSans-CondensedBold,OpenSans-CondensedBold,OpenSans-CondensedBold,OpenSans-CondensedBold,Hiragino Sans W1,PingFang SC Light
