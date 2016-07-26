@@ -340,7 +340,11 @@ if(createTeaserFrontImage) {
         subtitle = txt['descr', lang], 
         caption = paste0( txt['source', lang], ": ",  txt['source.name', lang])
       ) +
-      theme(plot.subtitle = element_text(size = 7), plot.caption = element_text(size = 5))
+      theme(
+        plot.subtitle = element_text(size = 7, family =  txt['base.font', lang]), 
+        plot.caption = element_text(size = 5,  family = txt['base.font', lang]),
+        plot.title = element_text(family = txt['title.font', lang])
+      )
     
     png(paste0("teaser/01_teaser_flickr_" , lang, ".png"), 
         res = 300, pointsize = 1, height = 900 * 1.5, width = 1100 * 1.5, bg = '#1a0000')
